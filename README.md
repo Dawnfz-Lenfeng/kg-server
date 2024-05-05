@@ -33,8 +33,7 @@ CKG-CUS（Chinese Knowledge Graph Construction and Update System，中文知识�
 
     # 初始化 PDF 预处理器并提取文本
     preprocessor = FilePreprocessor('path/to/file.pdf', file_type='pdf')
-    text = preprocessor.process(engine='pdfplumber')
-    print(text)
+    preprocessor.save_to_file('output.txt', engine='pdfplumber')
     ```
 
 2. **从使用OCR技术提取文本**
@@ -43,8 +42,7 @@ CKG-CUS（Chinese Knowledge Graph Construction and Update System，中文知识�
 
     # 初始化图像预处理器并使用 OCR 提取文本
     preprocessor = FilePreprocessor('path/to/file.pdf', file_type='pdf')
-    text = preprocessor.process(engine='ocr', language='eng+chi_sim')
-    print(text)
+    preprocessor.save_to_file('output.txt', engine='ocr', language='eng+chi_sim')
     ```
 
 ## 依赖项
