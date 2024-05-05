@@ -28,7 +28,7 @@ class FilePreprocessor:
         self.file_path = file_path
         self.file_type = file_type.lower()
 
-    def process(self, pages: list = None, engine='pypdf2', language: str = 'eng+chi_sim') -> str:
+    def process(self, pages: list = None, engine='pdfplumber', language: str = 'eng+chi_sim') -> str:
         """
         :param pages: 一个表示页码的列表, 或使用range对象表示的范围.页码从1开始计数.
         :param engine: 用于处理文件的引擎. 对于PDF文件, 可以选择 'pypdf2' (默认)来直接提取文本,
@@ -38,7 +38,7 @@ class FilePreprocessor:
         """
         engine = engine.lower()
         if self.file_type == 'pdf':
-            if engine == 'pypdf2':
+            if engine == 'pdfplumber':
                 return self._process_pdf_pdfplumber(pages)
             elif engine == 'ocr':
                 return self._process_pdf_ocr(pages, language)
@@ -47,7 +47,7 @@ class FilePreprocessor:
         else:
             raise ValueError(f"Unsupported file type or engine: {self.file_type} with {engine}")
 
-    def save_to_file(self, output_path: str, pages: list = None, engine='pypdf2', language: str = 'eng+chi_sim'):
+    def save_to_file(self, output_path: str, pages: list = None, engine='pdfplumber', language: str = 'eng+chi_sim'):
         """
         处理文本, 并保存到指定的文件.
         NOTE: 该函数很可能会被重构, 因为可能之后的处理文件不一定会以实际的txt结构储存(比如跟数据库对接)
