@@ -20,15 +20,13 @@ from pdf2image import convert_from_path
 
 
 class FilePreprocessor:
-    def __init__(self, file_path: str, file_type='pdf'):
+    def __init__(self, file_path: str):
         """
         :param file_path: 需要处理的文件路径.
-        :param file_type: 文件类型, 默认为 'pdf' .
         """
         self.file_path = file_path
-        self.file_type = file_type.lower()
 
-    def process(self, pages: list = None, engine='pdfplumber', language: str = 'eng+chi_sim') -> str:
+    def extract_text(self, pages: list = None, engine='pdfplumber', language: str = 'eng+chi_sim') -> str:
         """
         :param pages: 一个表示页码的列表, 或使用range对象表示的范围.页码从1开始计数.
         :param engine: 用于处理文件的引擎. 对于PDF文件, 可以选择 'pypdf2' (默认)来直接提取文本,
@@ -37,7 +35,9 @@ class FilePreprocessor:
         :return: 提取到的文本内容, 作为一个字符串返回.
         """
         engine = engine.lower()
-        if self.file_type == 'pdf':
+        file_type = self.file_path.split('.')[-1].lower()
+
+        if file_type == 'pdf':
             if engine == 'pdfplumber':
                 return self._process_pdf_pdfplumber(pages)
             elif engine == 'ocr':
@@ -45,7 +45,7 @@ class FilePreprocessor:
 
         # 其他文件类型处理留作未来实现
         else:
-            raise ValueError(f"Unsupported file type or engine: {self.file_type} with {engine}")
+            raise ValueError(f"Unsupported file type or engine: {file_type} with {engine}")
 
     def save_to_file(self, output_path: str, pages: list = None, engine='pdfplumber', language: str = 'eng+chi_sim'):
         """
@@ -57,7 +57,7 @@ class FilePreprocessor:
         :param engine: 用于处理文件的引擎.
         :param language: 用于OCR识别的语言代码.
         """
-        text = self.process(pages, engine, language)
+        text = self.extract_text(pages, engine, language)
         with open(output_path, 'w', encoding='utf-8') as file:
             file.write(text)
 
