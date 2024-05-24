@@ -1,1 +1,1 @@
-from .FilePreprocessor import FilePreprocessor
+from ._preprocess_text import TextProcessor
