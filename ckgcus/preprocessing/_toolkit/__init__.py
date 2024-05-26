@@ -1,3 +1,3 @@
 from .recognize_text import TextRecognizer
 from .clean_text import TextCleaner
-# from .convert_text import TextConverter
+from .remove_duplicated_text import TextDuplicateRemover

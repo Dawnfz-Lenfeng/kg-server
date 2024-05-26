@@ -1,4 +1,4 @@
-from ._toolkit import TextRecognizer, TextCleaner
+from ._toolkit import TextRecognizer, TextCleaner, TextDuplicateRemover
 
 
 class TextProcessor:
@@ -35,6 +35,15 @@ class TextProcessor:
         """
         self._text = TextCleaner.clean(self._text, clean_methods)
 
+    def remove_duplicates(
+            self,
+            char_threshold=4,
+            digit_threshold=20,
+            paragraph_threshold=0.95):
+        self._text = TextDuplicateRemover(
+            char_threshold, digit_threshold, paragraph_threshold
+        ).remove_duplicates(self._text)
+
     @property
     def text(self):
         return self._text
@@ -42,7 +51,3 @@ class TextProcessor:
     @property
     def original_text(self):
         return self._original_text
-
-
-
-
