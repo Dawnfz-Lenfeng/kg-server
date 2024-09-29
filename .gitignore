@@ -1,9 +1,3 @@
-/ckgcus/toolkit/
-/test/
-/python/*.egg-info/
-/python/ckgcus/**/__pycache__/
-.vscode/
-.idea/
-
-
-
+/*.egg-info/
+/ckgcus/**/__pycache__/
+build/
