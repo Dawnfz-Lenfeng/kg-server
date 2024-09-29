@@ -33,7 +33,6 @@ from ckgcus.preprocessing import TextProcessor
 
 text_processor = TextProcessor.read_file('path/to/file.pdf')
 text_processor.clean()  # 清洗
-text_processor.remove_duplicates()  # 去重
 text_processor.save_to_file('output.txt')
 ```
 

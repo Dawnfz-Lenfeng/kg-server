@@ -1,1 +1,2 @@
-from ._preprocess_text import TextProcessor
+from .core import TextPreprocessor
+
