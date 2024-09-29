@@ -22,6 +22,13 @@ CKG-CUS（Chinese Knowledge Graph Construction and Update System，中文知识�
         ```bash
         brew install tesseract
         ```
+2. 安装本库
+    这里要仔细看。
+    ```bash
+    pip install -e ./python
+    ```
+    此时是动态的安装，你可以任意修改源码，无需重新安装。源码在`python/ckgcus`目录下。
+
 
 ## 使用示例
 

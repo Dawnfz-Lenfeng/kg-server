@@ -1,0 +1,9 @@
+/ckgcus/toolkit/
+/test/
+/python/*.egg-info/
+/python/ckgcus/**/__pycache__/
+.vscode/
+.idea/
+
+
+
