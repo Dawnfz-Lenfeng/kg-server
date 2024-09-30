@@ -1,9 +1,12 @@
 import difflib
 import re
+from .clean_text import _PUNCTUATION_CHARS
+
 
 # 句末符号
-_END_MARKS = r"(?<=[\.。!！?？])\n"
+_END_CHARS = re.compile(r"(?<=[\.。!！?？])\n")
 _PARAGRAPH_LENS = 15
+_BEGIN_WITH_PUNCTUATION_CHARS = re.compile(f"^[{_PUNCTUATION_CHARS}]+")
 
 
 def remove_duplicated_text(
@@ -25,7 +28,7 @@ def remove_duplicated_text(
     text = _remove_duplicated_chars(text, char_threshold, digit_threshold)
 
     # 第二步：按.、。或\n分割段落，并保留分隔符
-    paragraphs = re.split(_END_MARKS, text)
+    paragraphs = _END_CHARS.split(text)
 
     # 第三步：在每个段落内去重句子，并去掉段内的\n
     cleaned_paragraphs = []
@@ -34,16 +37,15 @@ def remove_duplicated_text(
         cleaned_paragraph = _remove_duplicated_sentences(
             paragraph.replace("\n", ""), paragraph_threshold
         )
+
+        # 如果段落开头是标点符号，则去掉标点符号
+        cleaned_paragraph = _BEGIN_WITH_PUNCTUATION_CHARS.sub("", cleaned_paragraph)
+
         if len(cleaned_paragraph) >= _PARAGRAPH_LENS:
             cleaned_paragraphs.append(cleaned_paragraph)
 
     # 将处理后的段落拼接回一个完整的文本
     cleaned_text = "\n".join(cleaned_paragraphs).strip()
-
-    # 再去重一次
-    cleaned_text = _remove_duplicated_chars(
-        cleaned_text, char_threshold, digit_threshold
-    )
 
     return cleaned_text
 
@@ -70,8 +72,6 @@ def _remove_duplicated_sentences(paragraph: str, paragraph_threshold: float) -> 
     # 将唯一句子拼接成一个段落
     cleaned_paragraph = "".join(unique_sentences).strip()
 
-    # 去除段落内的空格
-    cleaned_paragraph = re.sub(r"\s+", "", cleaned_paragraph)
     return cleaned_paragraph
 
 
@@ -103,5 +103,5 @@ def _remove_duplicated_chars(
 if __name__ == "__main__":
     chars1 = "333333   ffffff       rrrrrrrr"
     paragraph1 = "这是。这是。这还是。"
-    text1 = "kkkkk\nf1111111           \n?\n  \n热热热。热热\nfefefef"
+    text1 = ",,,，kkkkk\nf1112342342344231111           \n?\n  \n热热热。热热\nfefefef"
     print(remove_duplicated_text(text1, char_threshold=4, digit_threshold=4))
