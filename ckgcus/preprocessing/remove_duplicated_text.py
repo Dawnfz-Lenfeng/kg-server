@@ -1,12 +1,12 @@
 import difflib
 import re
-from .clean_text import _PUNCTUATION_CHARS
 
+from .clean_text import PUNCTUATION_CHARS
 
 # 句末符号
-_END_CHARS = re.compile(r"(?<=[\.。!！?？])\n")
-_PARAGRAPH_LENS = 15
-_BEGIN_WITH_PUNCTUATION_CHARS = re.compile(f"^[{_PUNCTUATION_CHARS}]+")
+END_CHARS = re.compile(r"(?<=[\.。!！?？])\n")
+PARAGRAPH_LENS = 15
+BEGIN_WITH_PUNCTUATION_CHARS = re.compile(f"^[{PUNCTUATION_CHARS}]+")
 
 
 def remove_duplicated_text(
@@ -28,7 +28,7 @@ def remove_duplicated_text(
     text = _remove_duplicated_chars(text, char_threshold, digit_threshold)
 
     # 第二步：按.、。或\n分割段落，并保留分隔符
-    paragraphs = _END_CHARS.split(text)
+    paragraphs = END_CHARS.split(text)
 
     # 第三步：在每个段落内去重句子，并去掉段内的\n
     cleaned_paragraphs = []
@@ -39,9 +39,9 @@ def remove_duplicated_text(
         )
 
         # 如果段落开头是标点符号，则去掉标点符号
-        cleaned_paragraph = _BEGIN_WITH_PUNCTUATION_CHARS.sub("", cleaned_paragraph)
+        cleaned_paragraph = BEGIN_WITH_PUNCTUATION_CHARS.sub("", cleaned_paragraph)
 
-        if len(cleaned_paragraph) >= _PARAGRAPH_LENS:
+        if len(cleaned_paragraph) >= PARAGRAPH_LENS:
             cleaned_paragraphs.append(cleaned_paragraph)
 
     # 将处理后的段落拼接回一个完整的文本

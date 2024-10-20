@@ -13,9 +13,10 @@ class TextPreprocessor:
         cls,
         file_path: str,
         first_page: int = 1,
-        last_page: int = None,
+        last_page: int | None = None,
         engine="pdfplumber",
         language: str = "chi_sim",
+        max_workers: int | None = None,
     ):
         """
         提取文本内容
@@ -26,6 +27,7 @@ class TextPreprocessor:
         :param engine: 用于处理文件的引擎. 对于PDF文件, 可以选择 'pdfplumber' (默认)来直接提取文本,
                     或者选择 'ocr' 来通过光学字符识别技术处理扫描或图像基的PDF文件.
         :param language: 用于OCR识别的语言代码. 默认为 'chi_sim' (中).
+        :param max_workers: 用于并行处理的进程数. 默认为None, 使用所有的可用进程.
         """
         return cls(
             extract_text(
@@ -34,6 +36,7 @@ class TextPreprocessor:
                 last_page,
                 engine,
                 language,
+                max_workers,
             )
         )
 

@@ -1,6 +1,5 @@
 import re
 
-
 # _PUNCTUATIONS_CHARS = re.compile(f'([{re.escape(".，。！？；：,!?;、 ")}])\\1+')
 
 # _PATTERNS = [
@@ -18,20 +17,20 @@ import re
 # ]
 
 # 汉字
-_CHINESE_CHARS = r"\u4e00-\u9fa5"
+CHINESE_CHARS = r"\u4e00-\u9fa5"
 # 标点符号
-_PUNCTUATION_CHARS = r",.;!?，。；！？\n"
+PUNCTUATION_CHARS = r",.;!?，。；！？\n"
 
 # 合并正则
-_PATTERN = re.compile(f"[^{_CHINESE_CHARS}{_PUNCTUATION_CHARS}]")
+PATTERN = re.compile(f"[^{CHINESE_CHARS}{PUNCTUATION_CHARS}]")
 # 标点符号去重
-_UNDUPLICATED_PATTERN = re.compile(f"([{_PUNCTUATION_CHARS}])\\1+")
+UNDUPLICATED_PATTERN = re.compile(f"([{PUNCTUATION_CHARS}])\\1+")
 
 
 def clean_text(text):
-    text = _PATTERN.sub("", text)
+    text = PATTERN.sub("", text)
 
-    return _UNDUPLICATED_PATTERN.sub(r"\1", text)
+    return UNDUPLICATED_PATTERN.sub(r"\1", text)
 
 
 if __name__ == "__main__":

@@ -34,24 +34,32 @@ CKG-CUS（Chinese Knowledge Graph Construction and Update System，中文知识�
 
 ## 使用示例
 
-以下是一些主要功能的简单使用示例：
+以下是一些主要功能的简单使用示例，注意在OCR中使用了多进程，必须仿照此形式定义main()函数！！
 
 - 使用 pdfplumber 引擎：
 ```python
 from ckgcus.preprocessing import TextPreprocessor
 
-text_processor = TextPreprocessor.read_file('path/to/file.pdf', first_page=3, engine='pdfplumber')
-text_processor.clean()  # 清洗
-text_processor.save_to_file('output.txt')
+def main():
+    text_processor = TextPreprocessor.read_file('path/to/file.pdf', first_page=3, engine='pdfplumber')
+    text_processor.clean()  # 清洗
+    text_processor.save_to_file('output.txt')
+
+if __name__ == '__main__':
+    main()
 ```
 
 - 使用 OCR 引擎：
 ```python
 from ckgcus.preprocessing import TextPreprocessor
 
-text_processor = TextPreprocessor.read_file('path/to/file.pdf', first_page=3, engine='ocr')
-text_processor.clean()  # 清洗
-text_processor.save_to_file('output.txt')
+def main():
+    text_processor = TextPreprocessor.read_file('path/to/file.pdf', first_page=3, engine='ocr')
+    text_processor.clean()  # 清洗
+    text_processor.save_to_file('output.txt')
+
+if __name__ == '__main__':
+    main()
 ```
 
 ## 贡献

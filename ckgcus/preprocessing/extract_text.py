@@ -1,54 +1,46 @@
-"""
-Description:
-
-- 本文件包含TextRecognizer类, 该类是为了支持不同文件类型的预处理而设计.
-- 初始支持将PDF文件转换为文本, 预留了扩展接口以支持图像和纯文本的处理.
-- 主要用途是为后续的数据分析和知识图谱构建提供预处理过的数据.
-
-Dependencies:
-以下是目前使用的库, 后期为了更好的处理效果, 可能会考虑调用更好的api.
-
-- pdfplumber: 用于PDF文件处理.
-- pytesseract: 使用Tesseract OCR引擎进行光学字符识别, 可从扫描的图像或PDF文件中提取文本.
-- Tesseract: OCR引擎. 安装可参考 https://blog.csdn.net/qq_38463737/article/details/109679007.
-- pdf2image: 将PDF文件页转换为图像, 便于OCR识别或进一步的图像处理.
-"""
+from functools import partial
+from multiprocessing import Pool, cpu_count
 
 import pdfplumber
 import pytesseract
-from pdf2image import convert_from_path
+from pdf2image import convert_from_path, pdfinfo_from_path
 
 
 def extract_text(
     file_path: str,
     first_page: int = 1,
-    last_page: int = None,
+    last_page: int | None = None,
     engine: str = "pdfplumber",
     language: str = "chi_sim",
+    max_workers: int | None = None,
 ) -> str:
     engine = engine.lower()
     file_type = file_path.split(".")[-1].lower()
 
+    if max_workers is None:
+        max_workers = max(cpu_count() - 1, 1)  # 保留一个 CPU 给主进程
+
     if file_type == "pdf":
         if engine == "pdfplumber":
-            return _process_pdf_pdfplumber(file_path, first_page, last_page)
+            return process_pdf_pdfplumber(file_path, first_page, last_page)
         elif engine == "ocr":
-            return _process_pdf_ocr(file_path, first_page, last_page, language)
+            return process_pdf_ocr(
+                file_path, first_page, last_page, language, max_workers
+            )
     elif file_type == "txt":
-        return _process_txt(file_path)
+        return process_txt(file_path)
     else:
         raise ValueError(f"Unsupported file type or engine: {file_type} with {engine}")
 
 
-def _process_pdf_pdfplumber(
-    file_path: str, first_page: int = 1, last_page: int = None
+def process_pdf_pdfplumber(
+    file_path: str, first_page: int, last_page: int | None
 ) -> str:
     text = []
 
     try:
         with pdfplumber.open(file_path, pages=[first_page, last_page]) as pdf:
             for page in pdf.pages:
-                # 处理每一页
                 text.append(page.extract_text())
     except Exception as e:
         print(f"Error processing PDF: {e}")
@@ -59,30 +51,36 @@ def _process_pdf_pdfplumber(
     return "\n".join(text)
 
 
-def _process_pdf_ocr(
+def process_pdf_ocr(
     file_path: str,
-    first_page: int = 1,
-    last_page: int = None,
-    language: str = "eng+chi_sim",
+    first_page: int,
+    last_page: int | None,
+    language: str,
+    max_workers: int,
 ) -> str:
-    text = []
-
     try:
-        # 只加载指定范围内的页面
-        images = convert_from_path(
-            file_path, first_page=first_page, last_page=last_page
-        )
+        # 获取 PDF 的总页数
+        pdf_info = pdfinfo_from_path(file_path, userpw=None, poppler_path=None)
+        total_pages = pdf_info["Pages"]
+        last_page = last_page or total_pages
 
-        for idx, image in enumerate(images):
-            page_num = first_page + idx
+        if first_page < 1 or last_page > total_pages:
+            raise ValueError("Page range is out of bounds.")
 
-            try:
-                page_text = pytesseract.image_to_string(image, lang=language)
-                if page_text:
-                    text.append(page_text)
-            except Exception as e:
-                print(f"Error processing page {page_num}: {e}")
-                continue
+        page_numbers = list(range(first_page, last_page + 1))
+
+        # 创建一个进程池
+        with Pool(processes=max_workers) as pool:
+            # 步骤 1：并行将每一页转换为图像
+            convert_page_partial = partial(_convert_page_to_image, file_path)
+            images = pool.map(convert_page_partial, page_numbers)
+
+            # 步骤 2：并行对图像进行 OCR 处理
+            ocr_image_partial = partial(_ocr_image, language)
+            ocr_results = pool.map(ocr_image_partial, images)
+
+        # 按页码排序结果
+        text = [result for result in ocr_results if result is not None]
 
     except Exception as e:
         raise Exception(f"Error processing PDF file with OCR: {e}")
@@ -90,10 +88,29 @@ def _process_pdf_ocr(
     return "\n".join(text)
 
 
-def _process_txt(file_path: str) -> str:
+def process_txt(file_path: str) -> str:
     try:
         with open(file_path, "r", encoding="utf-8") as file:
             text = file.read()
         return text
     except Exception as e:
         raise Exception(f"Error processing TXT file: {e}")
+
+
+def _convert_page_to_image(file_path, page_num):
+    try:
+        images = convert_from_path(file_path, first_page=page_num, last_page=page_num)
+        return images[0]
+    except Exception as e:
+        print(f"Error converting page {page_num}: {e}")
+        return None
+
+
+def _ocr_image(language, image):
+    if image is None:
+        return None
+    try:
+        return pytesseract.image_to_string(image, lang=language)
+    except Exception as e:
+        print(f"Error processing OCR: {e}")
+        return None
