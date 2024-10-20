@@ -36,15 +36,35 @@ CKG-CUS（Chinese Knowledge Graph Construction and Update System，中文知识�
 
 以下是一些主要功能的简单使用示例：
 
-
+- 使用 pdfplumber 引擎：
 ```python
-from ckgcus.preprocessing import TextProcessor
+from ckgcus.preprocessing import TextPreprocessor
 
-text_processor = TextProcessor.read_file('path/to/file.pdf')
+text_processor = TextPreprocessor.read_file('path/to/file.pdf', first_page=3, engine='pdfplumber')
 text_processor.clean()  # 清洗
 text_processor.save_to_file('output.txt')
 ```
 
+- 使用 OCR 引擎：
+```python
+from ckgcus.preprocessing import TextPreprocessor
+
+text_processor = TextPreprocessor.read_file('path/to/file.pdf', first_page=3, engine='ocr')
+text_processor.clean()  # 清洗
+text_processor.save_to_file('output.txt')
+```
+
+## 贡献
+
+欢迎对本项目进行贡献，包括但不限于：
+
+- 提交代码修复和功能改进。
+- 添加新的预处理接口。
+- 提供更多使用示例和文档。
+
+## 许可证
+
+本项目遵循 MIT 许可证。请查看 `LICENSE` 文件了解更多信息。
 
 
 ## 依赖项

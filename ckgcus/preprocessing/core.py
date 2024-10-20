@@ -12,11 +12,31 @@ class TextPreprocessor:
     def read_file(
         cls,
         file_path: str,
-        pages: list | None = None,
+        first_page: int = 1,
+        last_page: int = None,
         engine="pdfplumber",
         language: str = "eng+chi_sim",
     ):
-        return cls(extract_text(file_path, pages, engine, language))
+        """
+        提取文本内容
+
+        :param file_path: 需要处理的文件路径.
+        :param first_page: 需要处理的起始页码, 默认为1.
+        :param last_page: 需要处理的结束页码, 默认为None, 表示处理到最后一页.
+        :param engine: 用于处理文件的引擎. 对于PDF文件, 可以选择 'pdfplumber' (默认)来直接提取文本,
+                    或者选择 'ocr' 来通过光学字符识别技术处理扫描或图像基的PDF文件.
+        :param language: 用于OCR识别的语言代码. 默认为 'eng+chi_sim' (中+英).
+        :return: 提取到的文本内容, 作为一个字符串返回.
+        """
+        return cls(
+            extract_text(
+                file_path,
+                first_page,
+                last_page,
+                engine,
+                language,
+            )
+        )
 
     def save_to_file(self, output_path: str, original=False):
         """
@@ -36,7 +56,10 @@ class TextPreprocessor:
         """
         self._text = clean_text(self._text)
         self._text = remove_duplicated_text(
-            self._text, char_threshold, digit_threshold, paragraph_threshold
+            self._text,
+            char_threshold,
+            digit_threshold,
+            paragraph_threshold,
         )
 
     @property
