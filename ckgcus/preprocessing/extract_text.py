@@ -5,6 +5,7 @@ from multiprocessing import Pool, cpu_count
 from typing import Optional
 
 import pdfplumber
+import pdfplumber.page
 import pytesseract
 from pdf2image import convert_from_path, pdfinfo_from_path
 
@@ -40,11 +41,7 @@ def extract_text(
 
     if file_type == "pdf":
         if engine == "pdfplumber":
-            return process_pdf_pdfplumber(
-                file_path,
-                page_numbers,
-                max_workers,
-            )
+            return process_pdf_pdfplumber(file_path, page_numbers)
         elif engine == "ocr":
             return process_pdf_ocr(
                 file_path,
@@ -58,19 +55,38 @@ def extract_text(
         raise ValueError(f"Unsupported file type or engine: {file_type} with {engine}")
 
 
-def process_pdf_pdfplumber(
-    file_path: str, page_numbers: list[int], max_workers: int
-) -> str:
+def process_pdf_pdfplumber(file_path: str, page_numbers: list[int]) -> str:
     text = []
 
-    with pdfplumber.open(file_path) as pdf:
-        for page_num in page_numbers:
-            page = pdf.pages[page_num - 1]
+    with pdfplumber.open(file_path, pages=page_numbers) as pdf:
+        for page_num, page in enumerate(pdf.pages):
             page_text = page.extract_text()
             if page_text:
                 text.append(page_text)
             else:
-                logger.info(f"Page {page_num} has no extractable text.")
+                logger.info(f"Page {page_num + 1} has no extractable text.")
+
+    # with pdfplumber.open(file_path) as pdf:
+    #     pages = [pdf.pages[page_num - 1] for page_num in page_numbers]
+
+    #     with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    #         future_to_page = {
+    #             executor.submit(_extract_page_text, page, page_num): page_num
+    #             for page, page_num in zip(pages, page_numbers)
+    #         }
+
+    #         for future in as_completed(future_to_page):
+    #             page_num = future_to_page[future]
+    #             try:
+    #                 page_text = future.result()
+    #                 if page_text:
+    #                     text.append((page_num, page_text))
+    #             except Exception as e:
+    #                 logger.error(f"Error processing page {page_num}: {e}")
+
+    #     # 按页码排序文本
+    #     text.sort(key=lambda x: x[0])
+    #     text = [content for _, content in text]
 
     return "\n".join(text)
 
@@ -130,14 +146,9 @@ def _ocr_image(language: str, image):
         return None
 
 
-def _extract_page_text(file_path: str, page_num: int):
-    try:
-        with pdfplumber.open(file_path, pages=[page_num]) as pdf:
-            page = pdf.pages[0]
-            text = page.extract_text()
-            if text is None:
-                logger.warning(f"No text found on page {page_num}.")
-            return text
-    except Exception as e:
-        logger.error(f"Error extracting text from page {page_num}: {e}")
-        return None
+# def _extract_page_text(page: pdfplumber.page.Page, page_num: int):
+#     try:
+#         return page.extract_text()
+#     except Exception as e:
+#         logger.error(f"Error extracting text from page {page_num}: {e}")
+#         return None

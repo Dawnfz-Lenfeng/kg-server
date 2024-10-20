@@ -25,7 +25,7 @@ def remove_duplicated_text(
     :return: 处理后的文本.
     """
     # 第一步：去重字符
-    text = _remove_duplicated_chars(text, char_threshold, digit_threshold)
+    text = remove_duplicated_chars(text, char_threshold, digit_threshold)
 
     # 第二步：按.、。或\n分割段落，并保留分隔符
     paragraphs = END_CHARS.split(text)
@@ -34,7 +34,7 @@ def remove_duplicated_text(
     cleaned_paragraphs = []
 
     for paragraph in paragraphs:
-        cleaned_paragraph = _remove_duplicated_sentences(
+        cleaned_paragraph = remove_duplicated_sentences(
             paragraph.replace("\n", ""), paragraph_threshold
         )
 
@@ -50,7 +50,7 @@ def remove_duplicated_text(
     return cleaned_text
 
 
-def _remove_duplicated_sentences(paragraph: str, paragraph_threshold: float) -> str:
+def remove_duplicated_sentences(paragraph: str, paragraph_threshold: float) -> str:
     # 使用正则表达式分割句子
     sentences = re.split(r"(?<=[。\.])\s*", paragraph)
 
@@ -75,7 +75,7 @@ def _remove_duplicated_sentences(paragraph: str, paragraph_threshold: float) -> 
     return cleaned_paragraph
 
 
-def _remove_duplicated_chars(
+def remove_duplicated_chars(
     text: str, char_threshold: int, digit_threshold: int
 ) -> str:
     """
