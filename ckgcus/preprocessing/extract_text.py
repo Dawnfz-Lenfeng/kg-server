@@ -24,7 +24,7 @@ def extract_text(
     first_page: int = 1,
     last_page: int = None,
     engine: str = "pdfplumber",
-    language: str = "eng+chi_sim",
+    language: str = "chi_sim",
 ) -> str:
     engine = engine.lower()
     file_type = file_path.split(".")[-1].lower()

@@ -25,7 +25,7 @@ class TextPreprocessor:
         :param last_page: 需要处理的结束页码, 默认为None, 表示处理到最后一页.
         :param engine: 用于处理文件的引擎. 对于PDF文件, 可以选择 'pdfplumber' (默认)来直接提取文本,
                     或者选择 'ocr' 来通过光学字符识别技术处理扫描或图像基的PDF文件.
-        :param language: 用于OCR识别的语言代码. 默认为 'eng+chi_sim' (中+英).
+        :param language: 用于OCR识别的语言代码. 默认为 'chi_sim' (中).
         """
         return cls(
             extract_text(
