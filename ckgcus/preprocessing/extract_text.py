@@ -1,11 +1,9 @@
 import logging
-import math
 from functools import partial
 from multiprocessing import Pool, cpu_count
 from typing import Optional
 
 import pdfplumber
-import pdfplumber.page
 import pytesseract
 from pdf2image import convert_from_path, pdfinfo_from_path
 
@@ -37,18 +35,17 @@ def extract_text(
     if max_workers is None:
         # 设置线程数为 CPU 核心数的 2 倍，最多 32 个线程
         cpu_cores = cpu_count()
-        max_workers = min(math.ceil(total_pages / 10), cpu_cores * 2, 32)
+        max_workers = min(cpu_cores * 2, 32)
 
     if file_type == "pdf":
         if engine == "pdfplumber":
-            return process_pdf_pdfplumber(file_path, page_numbers)
-        elif engine == "ocr":
-            return process_pdf_ocr(
-                file_path,
-                page_numbers,
-                language,
-                max_workers,
-            )
+            text = process_pdf_pdfplumber(file_path, page_numbers)
+            if text:
+                return text
+            else:
+                logger.info("PDFplumber failed to extract text, trying OCR.")
+        if engine == "ocr" or not text:
+            return process_pdf_ocr(file_path, page_numbers, language, max_workers)
     elif file_type == "txt":
         return process_txt(file_path)
     else:
@@ -66,51 +63,18 @@ def process_pdf_pdfplumber(file_path: str, page_numbers: list[int]) -> str:
             else:
                 logger.info(f"Page {page_num + 1} has no extractable text.")
 
-    # with pdfplumber.open(file_path) as pdf:
-    #     pages = [pdf.pages[page_num - 1] for page_num in page_numbers]
-
-    #     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-    #         future_to_page = {
-    #             executor.submit(_extract_page_text, page, page_num): page_num
-    #             for page, page_num in zip(pages, page_numbers)
-    #         }
-
-    #         for future in as_completed(future_to_page):
-    #             page_num = future_to_page[future]
-    #             try:
-    #                 page_text = future.result()
-    #                 if page_text:
-    #                     text.append((page_num, page_text))
-    #             except Exception as e:
-    #                 logger.error(f"Error processing page {page_num}: {e}")
-
-    #     # 按页码排序文本
-    #     text.sort(key=lambda x: x[0])
-    #     text = [content for _, content in text]
-
     return "\n".join(text)
 
 
 def process_pdf_ocr(
     file_path: str, page_numbers: list[int], language: str, max_workers: int
 ) -> str:
-    text = []
-
     try:
         with Pool(processes=max_workers) as pool:
-            convert_partial = partial(_convert_page_to_image, file_path)
-            images = pool.map(convert_partial, page_numbers)
+            ocr_extract_partial = partial(_ocr_extract, file_path, language=language)
+            ocr_results = pool.map(ocr_extract_partial, page_numbers)
 
-            ocr_partial = partial(_ocr_image, language)
-            ocr_results = pool.map(ocr_partial, images)
-
-        for page_num, ocr_text in zip(page_numbers, ocr_results):
-            if ocr_text:
-                text.append((page_num, ocr_text))
-
-        # 按页码排序文本
-        text.sort(key=lambda x: x[0])
-        text = [content for _, content in text]
+        text = [ocr_text for ocr_text in ocr_results if ocr_text]
 
     except Exception as e:
         raise Exception(f"Error processing PDF file with OCR: {e}")
@@ -127,28 +91,18 @@ def process_txt(file_path: str) -> str:
         raise Exception(f"Error processing TXT file: {e}")
 
 
-def _convert_page_to_image(file_path, page_num):
+def _ocr_extract(file_path: str, page_num: int, language: str):
     try:
         images = convert_from_path(file_path, first_page=page_num, last_page=page_num)
-        return images[0]
+        image = images[0]
     except Exception as e:
-        logger.warning(f"Error converting page {page_num}: {e}")
+        logger.warning(f"Error converting page {page_num} to image: {e}")
         return None
 
-
-def _ocr_image(language: str, image):
-    if image is None:
-        return None
-    try:
-        return pytesseract.image_to_string(image, lang=language)
-    except Exception as e:
-        logger.warning(f"Error processing OCR: {e}")
-        return None
-
-
-# def _extract_page_text(page: pdfplumber.page.Page, page_num: int):
-#     try:
-#         return page.extract_text()
-#     except Exception as e:
-#         logger.error(f"Error extracting text from page {page_num}: {e}")
-#         return None
+    if image is not None:
+        try:
+            text = pytesseract.image_to_string(image, lang=language)
+            return text
+        except Exception as e:
+            logger.warning(f"Error processing OCR on page {page_num}: {e}")
+    return None
