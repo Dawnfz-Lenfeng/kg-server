@@ -1,18 +1,17 @@
 import difflib
 import re
 
-from .clean_text import PUNCTUATION_CHARS
+from .clean_text import PUNCTUATION_CHARS, END_SENTENCE_CHARS
 
-# 句末符号
-END_CHARS = re.compile(r"(?<=[\.。!！?？])\n")
+
 PARAGRAPH_LENS = 15
-BEGIN_WITH_PUNCTUATION_CHARS = re.compile(f"^[{PUNCTUATION_CHARS}]+")
+
+newline_pattern = re.compile(f"(?<=[{END_SENTENCE_CHARS}])\n")
+begin_with_punctuation_pattern = re.compile(f"^[{PUNCTUATION_CHARS}]+")
 
 
 def remove_duplicated_text(
     text: str,
-    char_threshold: int = 4,
-    digit_threshold: int = 20,
     paragraph_threshold: float = 0.95,
 ) -> str:
     """
@@ -20,15 +19,14 @@ def remove_duplicated_text(
 
     :param text: 需要处理的文本.
     :param char_threshold: 连续字符的阈值，超过这个阈值将被压缩.
-    :param digit_threshold: 连续数字的阈值，超过这个阈值将被压缩.
     :param paragraph_threshold: 句子相似度的阈值，超过这个阈值将被认为是重复句子.
     :return: 处理后的文本.
     """
     # 第一步：去重字符
-    text = remove_duplicated_chars(text, char_threshold, digit_threshold)
+    text = remove_duplicated_chars(text)
 
     # 第二步：按.、。或\n分割段落，并保留分隔符
-    paragraphs = END_CHARS.split(text)
+    paragraphs = newline_pattern.split(text)
 
     # 第三步：在每个段落内去重句子，并去掉段内的\n
     cleaned_paragraphs = []
@@ -39,7 +37,7 @@ def remove_duplicated_text(
         )
 
         # 如果段落开头是标点符号，则去掉标点符号
-        cleaned_paragraph = BEGIN_WITH_PUNCTUATION_CHARS.sub("", cleaned_paragraph)
+        cleaned_paragraph = begin_with_punctuation_pattern.sub("", cleaned_paragraph)
 
         if len(cleaned_paragraph) >= PARAGRAPH_LENS:
             cleaned_paragraphs.append(cleaned_paragraph)
@@ -75,15 +73,12 @@ def remove_duplicated_sentences(paragraph: str, paragraph_threshold: float) -> s
     return cleaned_paragraph
 
 
-def remove_duplicated_chars(
-    text: str, char_threshold: int, digit_threshold: int
-) -> str:
+def remove_duplicated_chars(text: str, char_threshold: int = 1) -> str:
     """
     查找并压缩连续出现超过指定阈值的字符。
 
     :param text: 需要处理的文本.
     :param char_threshold: 连续字符的阈值，超过这个阈值将被压缩.
-    :param digit_threshold: 连续数字的阈值，超过这个阈值将被压缩.
     :return: 处理后的文本.
     """
     if not text:
@@ -93,8 +88,6 @@ def remove_duplicated_chars(
     def compress_match(match):
         char = match.group(0)[0]
         length = len(match.group(0))
-        if char.isdigit():
-            return char if length > digit_threshold else match.group(0)
         return char if length >= char_threshold else match.group(0)
 
     return re.sub(r"(.)\1+", compress_match, text)

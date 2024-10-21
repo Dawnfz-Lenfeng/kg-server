@@ -1,7 +1,6 @@
 import logging
 from functools import partial
-from multiprocessing import Pool, cpu_count
-from typing import Optional
+from multiprocessing import Pool
 
 import pdfplumber
 import pytesseract
@@ -14,10 +13,10 @@ logger = logging.getLogger(__name__)
 def extract_text(
     file_path: str,
     first_page: int = 1,
-    last_page: Optional[int] = None,
+    last_page: int | None = None,
     engine: str = "pdfplumber",
     language: str = "chi_sim",
-    max_workers: Optional[int] = None,
+    max_workers: int | None = None,
 ) -> str:
     engine = engine.lower()
     file_type = file_path.split(".")[-1].lower()
@@ -31,11 +30,6 @@ def extract_text(
         raise ValueError("Page range is out of bounds.")
 
     page_numbers = list(range(first_page, last_page + 1))
-
-    if max_workers is None:
-        # 设置线程数为 CPU 核心数的 2 倍，最多 32 个线程
-        cpu_cores = cpu_count()
-        max_workers = min(cpu_cores * 2, 32)
 
     if file_type == "pdf":
         if engine == "pdfplumber":

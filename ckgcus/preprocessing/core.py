@@ -2,11 +2,14 @@ from .clean_text import clean_text
 from .extract_text import extract_text
 from .remove_duplicated_text import remove_duplicated_text
 
+from multiprocessing import cpu_count
+
 
 class TextPreprocessor:
-    def __init__(self, text: str):
-        self._original_text = text  # 初始文本
-        self._text = text
+    def __init__(self, text: str, max_workers: int):
+        self.original_text = text  # 初始文本
+        self.text = text
+        self.max_workers = max_workers
 
     @classmethod
     def read_file(
@@ -14,7 +17,7 @@ class TextPreprocessor:
         file_path: str,
         first_page: int = 1,
         last_page: int | None = None,
-        engine="pdfplumber",
+        engine: str = "pdfplumber",
         language: str = "chi_sim",
         max_workers: int | None = None,
     ):
@@ -29,6 +32,11 @@ class TextPreprocessor:
         :param language: 用于OCR识别的语言代码. 默认为 'chi_sim' (中).
         :param max_workers: 用于并行处理的进程数. 默认为None, 使用所有的可用进程.
         """
+        if max_workers is None:
+            # 设置线程数为 CPU 核心数的 2 倍，最多 32 个线程
+            cpu_cores = cpu_count()
+            max_workers = min(cpu_cores * 2, 32)
+
         return cls(
             extract_text(
                 file_path,
@@ -37,7 +45,8 @@ class TextPreprocessor:
                 engine,
                 language,
                 max_workers,
-            )
+            ),
+            max_workers=max_workers,
         )
 
     def save_to_file(self, output_path: str, original=False):
@@ -49,25 +58,11 @@ class TextPreprocessor:
         :param original: 是否输出原始文本
         """
         with open(output_path, "w", encoding="utf-8") as file:
-            file.write(self._text if not original else self._original_text)
+            file.write(self.text if not original else self.original_text)
 
-    def clean(self, char_threshold=4, digit_threshold=20, paragraph_threshold=0.95):
+    def clean(self):
         """
-        Clean text using specified methods.
-        :param clean_methods: List of cleaning methods to apply.
+        清理文本内容
         """
-        self._text = clean_text(self._text)
-        self._text = remove_duplicated_text(
-            self._text,
-            char_threshold,
-            digit_threshold,
-            paragraph_threshold,
-        )
-
-    @property
-    def text(self):
-        return self._text
-
-    @property
-    def original_text(self):
-        return self._original_text
+        self.text = clean_text(self.text, self.max_workers)
+        self.text = remove_duplicated_text(self.text)
