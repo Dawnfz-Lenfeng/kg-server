@@ -1,8 +1,8 @@
+from multiprocessing import cpu_count
+
 from .clean_text import clean_text
 from .extract_text import extract_text
 from .remove_duplicated_text import remove_duplicated_text
-
-from multiprocessing import cpu_count
 
 
 class TextPreprocessor:

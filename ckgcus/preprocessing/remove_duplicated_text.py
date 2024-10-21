@@ -1,8 +1,7 @@
 import difflib
 import re
 
-from .clean_text import PUNCTUATION_CHARS, END_SENTENCE_CHARS
-
+from .clean_text import END_SENTENCE_CHARS, PUNCTUATION_CHARS
 
 PARAGRAPH_LENS = 15
 
