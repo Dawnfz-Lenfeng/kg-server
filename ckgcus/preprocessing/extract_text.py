@@ -34,12 +34,17 @@ def extract_text(
     if file_type == "pdf":
         if engine == "pdfplumber":
             text = process_pdf_pdfplumber(file_path, page_numbers)
-            if text:
-                return text
-            else:
+            if not text:
                 logger.info("PDFplumber failed to extract text, trying OCR.")
-        if engine == "ocr" or not text:
-            return process_pdf_ocr(file_path, page_numbers, language, max_workers)
+                text = process_pdf_ocr(file_path, page_numbers, language, max_workers)
+        elif engine == "ocr":
+            text = process_pdf_ocr(file_path, page_numbers, language, max_workers)
+
+        if text:
+            return text
+        else:
+            raise Exception(f"Failed to extract text from {file_path}.")
+
     elif file_type == "txt":
         return process_txt(file_path)
     else:

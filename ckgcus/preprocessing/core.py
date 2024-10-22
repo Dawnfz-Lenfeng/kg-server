@@ -1,8 +1,12 @@
+import logging
 from multiprocessing import cpu_count
 
 from .clean_text import clean_text
 from .extract_text import extract_text
 from .remove_duplicated_text import remove_duplicated_text
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 class TextPreprocessor:
@@ -36,6 +40,7 @@ class TextPreprocessor:
             # 设置线程数为 CPU 核心数的 2 倍，最多 32 个线程
             cpu_cores = cpu_count()
             max_workers = min(cpu_cores * 2, 32)
+        logger.info(f"Using {max_workers} workers for text extraction.")
 
         return cls(
             extract_text(

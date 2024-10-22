@@ -1,4 +1,8 @@
+import logging
 import re
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 # 字符集
 CHINESE_CHARS = r"\u4e00-\u9fa5"
@@ -17,8 +21,10 @@ non_target_pattern = re.compile(
 
 def clean_text(text: str, max_workers: int):
     if len(text) < 1000:
+        logger.info(f"Cleaning text synchronously.")
         return clean_text_synchronously(text)
     else:
+        logger.info(f"Cleaning text with {max_workers} workers.")
         return clean_text_in_parallel(text, max_workers)
 
 
