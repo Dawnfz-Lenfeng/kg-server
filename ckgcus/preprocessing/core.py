@@ -22,7 +22,7 @@ class TextPreprocessor:
         last_page: int | None = None,
         engine: str = "pdfplumber",
         language: str = "chi_sim",
-        max_workers: int | None = None,
+        max_workers: int = 1,
     ):
         """
         提取文本内容
@@ -35,8 +35,6 @@ class TextPreprocessor:
         :param language: 用于OCR识别的语言代码. 默认为 'chi_sim' (中).
         :param max_workers: 用于并行处理的进程数. 默认为None, 使用所有的可用进程.
         """
-        if max_workers is None:
-            max_workers = 1
         logger.info(f"Using {max_workers} workers for text extraction.")
 
         return cls(
