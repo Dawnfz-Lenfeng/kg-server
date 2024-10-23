@@ -1,6 +1,6 @@
 import logging
 from functools import partial
-from multiprocessing import Pool
+from multiprocessing import Manager, Pool
 
 import pdfplumber
 import pytesseract
@@ -53,14 +53,22 @@ def extract_text(
 
 def process_pdf_pdfplumber(file_path: str, page_numbers: list[int]) -> str:
     text = []
+    total_pages = len(page_numbers)
+    processed_pages = 0
 
     with pdfplumber.open(file_path, pages=page_numbers) as pdf:
         for page_num, page in enumerate(pdf.pages):
             page_text = page.extract_text()
+
+            processed_pages += 1
             if page_text:
                 text.append(page_text)
+                print(
+                    f"\rProcessing {processed_pages} / {total_pages} pages...", end=""
+                )
             else:
                 logger.info(f"Page {page_num + 1} has no extractable text.")
+    print()  # 打印换行以结束进度条
 
     return "\n".join(text)
 
@@ -68,12 +76,36 @@ def process_pdf_pdfplumber(file_path: str, page_numbers: list[int]) -> str:
 def process_pdf_ocr(
     file_path: str, page_numbers: list[int], language: str, max_workers: int
 ) -> str:
+    total_pages = len(page_numbers)
+
+    # 使用 Manager 创建共享变量
+    manager = Manager()
+    processed_pages = manager.Value("i", 0)
+    text_list = manager.list()
+    lock = manager.Lock()
+
+    def callback(result):
+        if result:
+            text_list.append(result)
+        with lock:
+            processed_pages.value += 1
+            print(
+                f"\rProcessing {processed_pages.value} / {total_pages} pages...", end=""
+            )
+
     try:
         with Pool(processes=max_workers) as pool:
+            logger.info("Starting OCR extraction.")
             ocr_extract_partial = partial(_ocr_extract, file_path, language=language)
-            ocr_results = pool.map(ocr_extract_partial, page_numbers)
+            for page_num in page_numbers:
+                pool.apply_async(
+                    ocr_extract_partial, args=(page_num,), callback=callback
+                )
+            pool.close()
+            pool.join()
+        print()  # 打印换行以结束进度条
 
-        text = [ocr_text for ocr_text in ocr_results if ocr_text]
+        text = [ocr_text for ocr_text in text_list if ocr_text]
 
     except Exception as e:
         raise Exception(f"Error processing PDF file with OCR: {e}")
@@ -93,7 +125,7 @@ def process_txt(file_path: str) -> str:
 def _ocr_extract(file_path: str, page_num: int, language: str):
     try:
         images = convert_from_path(file_path, first_page=page_num, last_page=page_num)
-        image = images[0]
+        image = images[0].convert("L")  # 转换为灰度图像
     except Exception as e:
         logger.warning(f"Error converting page {page_num} to image: {e}")
         return None

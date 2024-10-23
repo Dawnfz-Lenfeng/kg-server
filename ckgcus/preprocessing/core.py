@@ -1,5 +1,4 @@
 import logging
-from multiprocessing import cpu_count
 
 from .clean_text import clean_text
 from .extract_text import extract_text
@@ -37,9 +36,7 @@ class TextPreprocessor:
         :param max_workers: 用于并行处理的进程数. 默认为None, 使用所有的可用进程.
         """
         if max_workers is None:
-            # 设置线程数为 CPU 核心数的 2 倍，最多 32 个线程
-            cpu_cores = cpu_count()
-            max_workers = min(cpu_cores * 2, 32)
+            max_workers = 1
         logger.info(f"Using {max_workers} workers for text extraction.")
 
         return cls(
