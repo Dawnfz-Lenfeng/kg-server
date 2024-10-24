@@ -35,8 +35,6 @@ class TextPreprocessor:
         :param language: 用于OCR识别的语言代码. 默认为 'chi_sim' (中).
         :param max_workers: 用于并行处理的进程数. 默认为None, 使用所有的可用进程.
         """
-        logger.info(f"Using {max_workers} workers for text extraction.")
-
         return cls(
             extract_text(
                 file_path,

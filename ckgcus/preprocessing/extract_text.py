@@ -1,6 +1,6 @@
 import logging
-from functools import partial
-from multiprocessing import Pool
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pdfplumber
 import pytesseract
@@ -9,6 +9,8 @@ from tqdm import tqdm
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+os.environ["OMP_THREAD_LIMIT"] = "1"
 
 
 def extract_text(
@@ -54,16 +56,13 @@ def extract_text(
 def process_pdf_pdfplumber(file_path: str, page_numbers: list[int]) -> str:
     text = []
 
+    logger.info("Starting PDFplumber extraction.")
     with pdfplumber.open(file_path, pages=page_numbers) as pdf:
-        for page_num, page in tqdm(
-            enumerate(pdf.pages), total=len(page_numbers), unit="page"
-        ):
+        for page in tqdm(pdf.pages, total=len(page_numbers), unit="page"):
             page_text = page.extract_text()
 
             if page_text:
                 text.append(page_text)
-            else:
-                logger.warning(f"Page {page_num + 1} has no extractable text.")
 
     return "".join(text)
 
@@ -73,14 +72,17 @@ def process_pdf_ocr(
 ) -> str:
     text = []
 
-    with Pool(processes=max_workers) as pool:
-        logger.info("Starting OCR extraction.")
-        ocr_extract_partial = partial(_ocr_extract, file_path, language=language)
-        ocr_results = pool.imap_unordered(ocr_extract_partial, page_numbers)
+    logger.info(f"Starting OCR extraction with {max_workers} workers.")
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(_ocr_extract, file_path, page_num, language): page_num
+            for page_num in page_numbers
+        }
 
-        for ocr_text in tqdm(ocr_results, total=len(page_numbers), unit="page"):
-            if ocr_text:
-                text.append(ocr_text)
+        for future in tqdm(as_completed(futures), total=len(page_numbers), unit="page"):
+            result = future.result()
+            if result:
+                text.append(result)
 
     text.sort(key=lambda x: x[0])
     text = [x[1] for x in text]
