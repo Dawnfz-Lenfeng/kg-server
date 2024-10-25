@@ -24,7 +24,6 @@ def extract_text(
     engine = engine.lower()
     file_type = file_path.split(".")[-1].lower()
 
-    # 获取 PDF 的总页数
     pdf_info = pdfinfo_from_path(file_path, userpw=None, poppler_path=None)
     total_pages = pdf_info["Pages"]
     last_page = last_page or total_pages
@@ -80,9 +79,10 @@ def process_pdf_ocr(
         }
 
         for future in tqdm(as_completed(futures), total=len(page_numbers), unit="page"):
-            result = future.result()
-            if result:
-                text.append(result)
+            page_num = futures[future]
+            page_text = future.result()
+            if page_text:
+                text.append((page_num, page_text))
 
     text.sort(key=lambda x: x[0])
     text = [x[1] for x in text]
@@ -105,7 +105,7 @@ def _ocr_extract(file_path: str, page_num: int, language: str):
 
     try:
         text = pytesseract.image_to_string(image, lang=language)
-        return page_num, text.strip()
+        return text.strip()
     except Exception as e:
         logger.warning(f"Error processing OCR on page {page_num}: {e}")
     return None
