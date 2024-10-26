@@ -9,10 +9,9 @@ logger.setLevel(logging.INFO)
 
 
 class TextPreprocessor:
-    def __init__(self, text: str, max_workers: int):
+    def __init__(self, text: str):
         self.original_text = text  # 初始文本
         self.text = text
-        self.max_workers = max_workers
 
     @classmethod
     def read_file(
@@ -20,31 +19,30 @@ class TextPreprocessor:
         file_path: str,
         first_page: int = 1,
         last_page: int | None = None,
-        engine: str = "pdfplumber",
-        language: str = "chi_sim",
+        ocr_engine: str = "cnocr",
         max_workers: int = 1,
+        force_ocr: bool = False,
     ):
         """
-        提取文本内容
+        提取文本内容. 如果文件是 pdf, 会优先使用 pdfolumber 提取文本, 否则使用 OCR 提取文本.
 
         :param file_path: 需要处理的文件路径.
         :param first_page: 需要处理的起始页码, 默认为1.
         :param last_page: 需要处理的结束页码, 默认为None, 表示处理到最后一页.
-        :param engine: 用于处理文件的引擎. 对于PDF文件, 可以选择 'pdfplumber' (默认)来直接提取文本,
-                    或者选择 'ocr' 来通过光学字符识别技术处理扫描或图像基的PDF文件.
-        :param language: 用于OCR识别的语言代码. 默认为 'chi_sim' (中).
+        :param ocr_engine: OCR引擎, 默认为 'cnocr', 可选 'tesseract', 'paddleocr'.
+        `cnocr` 精度和速度都适中; `paddleocr` 精度最高但是最慢; `tesseract` 精度最低但是最快.
         :param max_workers: 用于并行处理的进程数. 默认为1, 表示不使用并行处理.
+        :param force_ocr: 是否强制使用 OCR 引擎, 默认为 False.
         """
         return cls(
             extract_text(
                 file_path,
                 first_page,
                 last_page,
-                engine,
-                language,
+                ocr_engine,
                 max_workers,
-            ),
-            max_workers=max_workers,
+                force_ocr,
+            )
         )
 
     def save_to_file(self, output_path: str, original=False):
@@ -59,8 +57,8 @@ class TextPreprocessor:
             file.write(self.text if not original else self.original_text)
 
     def clean(self):
-        """
-        清理文本内容
-        """
-        self.text = clean_text(self.text, self.max_workers)
+        """清理文本内容"""
+        logger.info("Cleaning text...")
+        self.text = clean_text(self.text)
+        logger.info("Removing duplicated text...")
         self.text = remove_duplicated_text(self.text)

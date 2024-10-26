@@ -3,25 +3,34 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pdfplumber
-import pytesseract
+from cnocr import CnOcr
 from pdf2image import convert_from_path, pdfinfo_from_path
 from tqdm import tqdm
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+try:
+    import pytesseract
+except ImportError:
+    pytesseract = None
 
-os.environ["OMP_THREAD_LIMIT"] = "1"
+try:
+    import numpy as np
+    from paddleocr import PaddleOCR
+except ImportError:
+    PaddleOCR = None
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 def extract_text(
     file_path: str,
     first_page: int = 1,
     last_page: int | None = None,
-    engine: str = "pdfplumber",
-    language: str = "chi_sim",
+    ocr_engine: str = "cnocr",
     max_workers: int = 1,
+    force_ocr: bool = False,
 ) -> str:
-    engine = engine.lower()
+    ocr_engine = ocr_engine.lower()
     file_type = file_path.split(".")[-1].lower()
 
     pdf_info = pdfinfo_from_path(file_path, userpw=None, poppler_path=None)
@@ -34,17 +43,33 @@ def extract_text(
     page_numbers = list(range(first_page, last_page + 1))
 
     if file_type == "pdf":
-        if engine == "pdfplumber":
+        if not force_ocr:
             text = process_pdf_pdfplumber(file_path, page_numbers)
-            if not text:
-                logger.info("PDFplumber failed to extract text, trying OCR.")
-                text = process_pdf_ocr(file_path, page_numbers, language, max_workers)
-        elif engine == "ocr":
-            text = process_pdf_ocr(file_path, page_numbers, language, max_workers)
+            if text:
+                return text
+            logger.info("PDFplumber failed to extract text, trying OCR.")
+
+        if ocr_engine == "cnocr":
+            text = process_pdf_cnocr(file_path, page_numbers, max_workers)
+
+        elif ocr_engine == "paddleocr":
+            if PaddleOCR is None:
+                raise ImportError("paddleocr is not installed.")
+            text = process_pdf_paddleocr(file_path, page_numbers, max_workers)
+
+        elif ocr_engine == "tesseract":
+            if pytesseract is None:
+                raise ImportError("pytesseract is not installed.")
+            # 每个 tesseract 默认使用omp多线程, 避免线程过多
+            os.environ["OMP_THREAD_LIMIT"] = "1"
+            text = process_pdf_tesseract(file_path, page_numbers, max_workers)
+
     elif file_type == "txt":
         text = process_txt(file_path)
     else:
-        raise ValueError(f"Unsupported file type or engine: {file_type} with {engine}")
+        raise ValueError(
+            f"Unsupported file type or engine: {file_type} with {ocr_engine}"
+        )
 
     if not text:
         logger.warning("No text extracted from the document.")
@@ -66,15 +91,15 @@ def process_pdf_pdfplumber(file_path: str, page_numbers: list[int]) -> str:
     return "".join(text)
 
 
-def process_pdf_ocr(
-    file_path: str, page_numbers: list[int], language: str, max_workers: int
-) -> str:
+def process_pdf_cnocr(file_path: str, page_numbers: list[int], max_workers: int) -> str:
     text = []
 
-    logger.info(f"Starting OCR extraction with {max_workers} workers.")
+    ocr = CnOcr()
+
+    logger.info(f"Starting cnOCR extraction with {max_workers} workers.")
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
-            executor.submit(_ocr_extract, file_path, page_num, language): page_num
+            executor.submit(_cnocr_extract, file_path, page_num, ocr): page_num
             for page_num in page_numbers
         }
 
@@ -85,8 +110,62 @@ def process_pdf_ocr(
                 text.append((page_num, page_text))
 
     text.sort(key=lambda x: x[0])
-    text = [x[1] for x in text]
-    return "".join(text)
+    return "".join(x[1] for x in text)
+
+
+def process_pdf_tesseract(
+    file_path: str, page_numbers: list[int], max_workers: int
+) -> str:
+    text = []
+
+    logger.info(f"Starting TesseractOCR extraction with {max_workers} workers.")
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(_tesseract_extract, file_path, page_num): page_num
+            for page_num in page_numbers
+        }
+
+        for future in tqdm(as_completed(futures), total=len(page_numbers), unit="page"):
+            page_num = futures[future]
+            page_text = future.result()
+            if page_text:
+                text.append((page_num, page_text))
+
+    text.sort(key=lambda x: x[0])
+    return "".join(x[1] for x in text)
+
+
+def process_pdf_paddleocr(
+    file_path: str, page_numbers: list[int], max_workers: int
+) -> str:
+    text = []
+    ocr = PaddleOCR(
+        use_angle_cls=True,
+        lang="ch",
+        show_log=False,
+        use_mp=True,
+    )
+
+    logger.info(f"Starting PaddleOCR extraction with {max_workers} workers.")
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(convert_page_to_image, file_path, page_num, "RGB"): page_num
+            for page_num in page_numbers
+        }
+
+        for future in tqdm(as_completed(futures), total=len(page_numbers), unit="page"):
+            page_num = futures[future]
+            image = future.result()
+            if image:
+                try:
+                    result = ocr.ocr(np.array(image))
+                    page_text = "\n".join(line[1][0] for line in result[0]).strip()
+                    text.append((page_num, page_text))
+                except Exception as e:
+                    logger.warning(f"Error processing OCR on page {page_num}: {e}")
+
+    text.sort(key=lambda x: x[0])
+    return "".join(x[1] for x in text)
 
 
 def process_txt(file_path: str) -> str:
@@ -95,16 +174,35 @@ def process_txt(file_path: str) -> str:
     return text
 
 
-def _ocr_extract(file_path: str, page_num: int, language: str):
+def convert_page_to_image(file_path: str, page_num: int, convert_mode: str = "L"):
     try:
         images = convert_from_path(file_path, first_page=page_num, last_page=page_num)
-        image = images[0].convert("L")  # 转换为灰度图像
+        return images[0].convert(convert_mode)
     except Exception as e:
         logger.warning(f"Error converting page {page_num} to image: {e}")
         return None
 
+
+def _cnocr_extract(file_path: str, page_num: int, ocr: CnOcr):
+    image = convert_page_to_image(file_path, page_num)
+    if image is None:
+        return None
+
     try:
-        text = pytesseract.image_to_string(image, lang=language)
+        res = ocr.ocr(image)
+        return "\n".join(line["text"] for line in res).strip()
+    except Exception as e:
+        logger.warning(f"Error processing OCR on page {page_num}: {e}")
+        return None
+
+
+def _tesseract_extract(file_path: str, page_num: int):
+    image = convert_page_to_image(file_path, page_num)
+    if image is None:
+        return None
+
+    try:
+        text = pytesseract.image_to_string(image, lang="chi_sim")
         return text.strip()
     except Exception as e:
         logger.warning(f"Error processing OCR on page {page_num}: {e}")

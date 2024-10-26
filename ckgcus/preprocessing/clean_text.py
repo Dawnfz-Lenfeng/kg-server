@@ -19,35 +19,12 @@ non_target_pattern = re.compile(
 )  # 删除非目标字符
 
 
-def clean_text(text: str, max_workers: int):
-    if len(text) < 1000:
-        logger.info(f"Cleaning text synchronously.")
-        return clean_text_synchronously(text)
-    else:
-        logger.info(f"Cleaning text with {max_workers} workers.")
-        return clean_text_in_parallel(text, max_workers)
-
-
-def clean_text_synchronously(text: str):
+def clean_text(text: str):
     text = non_target_pattern.sub("", text)
     text = separator_pattern.sub("，", text)
     text = end_sentence_pattern.sub("。", text)
     text = punctuation_fix_pattern.sub("。", text)
     return text
-
-
-def clean_text_in_parallel(text: str, max_workers: int):
-    from multiprocessing import Pool
-
-    parts = split_text(text, max_workers)
-    with Pool(max_workers) as pool:
-        results = pool.map(clean_text_synchronously, parts)
-    return "".join(results)
-
-
-def split_text(text, parts):
-    part_length = len(text) // parts
-    return [text[i : i + part_length] for i in range(0, len(text), part_length)]
 
 
 if __name__ == "__main__":
