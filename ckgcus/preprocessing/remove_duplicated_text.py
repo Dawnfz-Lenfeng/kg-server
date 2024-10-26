@@ -4,6 +4,7 @@ import re
 from .clean_text import END_SENTENCE_CHARS, PUNCTUATION_CHARS
 
 PARAGRAPH_LENS = 15
+SETENCE_LENS = 5
 
 newline_pattern = re.compile(f"(?<=[{END_SENTENCE_CHARS}])\n")
 begin_with_punctuation_pattern = re.compile(f"^[{PUNCTUATION_CHARS}]+")
@@ -56,9 +57,10 @@ def remove_duplicated_sentences(paragraph: str, paragraph_threshold: float) -> s
     similar_sentences = set()
 
     for i, sentence in enumerate(sentences):
-        if sentence in similar_sentences or not sentence:
+        if len(sentence) < SETENCE_LENS or sentence in similar_sentences:
             continue
         unique_sentences.append(sentence)
+
         for j in range(i + 1, len(sentences)):
             if sentences[j] in similar_sentences or not sentences[j]:
                 continue

@@ -1,6 +1,7 @@
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 import pdfplumber
 from cnocr import CnOcr
@@ -21,6 +22,8 @@ except ImportError:
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+lock = threading.Lock()
+
 
 def extract_text(
     file_path: str,
@@ -33,16 +36,16 @@ def extract_text(
     ocr_engine = ocr_engine.lower()
     file_type = file_path.split(".")[-1].lower()
 
-    pdf_info = pdfinfo_from_path(file_path, userpw=None, poppler_path=None)
-    total_pages = pdf_info["Pages"]
-    last_page = last_page or total_pages
-
-    if first_page < 1 or last_page > total_pages:
-        raise ValueError("Page range is out of bounds.")
-
-    page_numbers = list(range(first_page, last_page + 1))
-
     if file_type == "pdf":
+        pdf_info = pdfinfo_from_path(file_path, userpw=None, poppler_path=None)
+        total_pages = pdf_info["Pages"]
+        last_page = last_page or total_pages
+
+        if first_page < 1 or last_page > total_pages:
+            raise ValueError("Page range is out of bounds.")
+
+        page_numbers = list(range(first_page, last_page + 1))
+
         if not force_ocr:
             text = process_pdf_pdfplumber(file_path, page_numbers)
             if text:
@@ -149,20 +152,15 @@ def process_pdf_paddleocr(
     logger.info(f"Starting PaddleOCR extraction with {max_workers} workers.")
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
-            executor.submit(convert_page_to_image, file_path, page_num, "RGB"): page_num
+            executor.submit(_paddleocr_extract, file_path, page_num, ocr): page_num
             for page_num in page_numbers
         }
 
         for future in tqdm(as_completed(futures), total=len(page_numbers), unit="page"):
             page_num = futures[future]
-            image = future.result()
-            if image:
-                try:
-                    result = ocr.ocr(np.array(image))
-                    page_text = "\n".join(line[1][0] for line in result[0]).strip()
-                    text.append((page_num, page_text))
-                except Exception as e:
-                    logger.warning(f"Error processing OCR on page {page_num}: {e}")
+            page_text = future.result()
+            if page_text:
+                text.append((page_num, page_text))
 
     text.sort(key=lambda x: x[0])
     return "".join(x[1] for x in text)
@@ -207,3 +205,17 @@ def _tesseract_extract(file_path: str, page_num: int):
     except Exception as e:
         logger.warning(f"Error processing OCR on page {page_num}: {e}")
     return None
+
+
+def _paddleocr_extract(file_path: str, page_num: int, ocr):
+    image = convert_page_to_image(file_path, page_num, "RGB")
+    if image is None:
+        return None
+    image = np.array(image)
+
+    try:
+        with lock:
+            result = ocr.ocr(image)
+        return "\n".join(line[1][0] for line in result[0]).strip()
+    except Exception as e:
+        logger.warning(f"Error processing OCR on page {page_num}: {e}")
