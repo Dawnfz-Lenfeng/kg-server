@@ -2,6 +2,7 @@ import logging
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Callable
 
 import pdfplumber
 from cnocr import CnOcr
@@ -99,7 +100,7 @@ def process_pdf_ocr(
     page_numbers: list[int],
     max_workers: int,
     ocr_engine: str,
-    extract_text: callable[[str, int], str],
+    extract_text: Callable[[str, int], str],
 ) -> str:
     text = []
     logger.info(f"Starting {ocr_engine} extraction. with {max_workers} workers.")
