@@ -61,13 +61,12 @@ def extract_text(
             # 每个 tesseract 默认使用omp多线程, 避免线程过多
             os.environ["OMP_THREAD_LIMIT"] = "1"
             text = process_pdf_tesseract(file_path, page_numbers, max_workers)
-
+        else:
+            raise ValueError(f"Unsupported OCR engine: {ocr_engine}")
     elif file_type == "txt":
         text = process_txt(file_path)
     else:
-        raise ValueError(
-            f"Unsupported file type or engine: {file_type} with {ocr_engine}"
-        )
+        raise ValueError(f"Unsupported file type: {file_type}")
 
     if not text:
         logger.warning("No text extracted from the document.")
@@ -103,7 +102,7 @@ def process_pdf_ocr(
     extract_text: Callable[[str, int], str],
 ) -> str:
     text = []
-    logger.info(f"Starting {ocr_engine} extraction. with {max_workers} workers.")
+    logger.info(f"Starting {ocr_engine} extraction with {max_workers} workers.")
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
             executor.submit(extract_text, file_path, page_num): page_num

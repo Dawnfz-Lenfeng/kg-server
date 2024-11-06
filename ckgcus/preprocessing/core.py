@@ -2,7 +2,6 @@ import logging
 
 from .clean_text import clean_text
 from .extract_text import extract_text
-from .remove_duplicated_text import remove_duplicated_text
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -60,5 +59,4 @@ class TextPreprocessor:
         """清理文本内容"""
         logger.info("Cleaning text...")
         self.text = clean_text(self.text)
-        logger.info("Removing duplicated text...")
-        self.text = remove_duplicated_text(self.text)
+
