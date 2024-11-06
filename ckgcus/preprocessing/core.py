@@ -59,4 +59,3 @@ class TextPreprocessor:
         """清理文本内容"""
         logger.info("Cleaning text...")
         self.text = clean_text(self.text)
-

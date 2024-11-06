@@ -1,7 +1,6 @@
 import difflib
 import re
 
-
 # 字符集
 CHINESE_CHARS = r"\u4e00-\u9fa5"
 SEPARATOR_CHARS = ",;，；"
@@ -13,14 +12,13 @@ PARAGRAPH_LENS = 15
 SETENCE_LENS = 5
 
 # 正则表达式
-punctuation_pattern = re.compile(
-    f"，。|。，|[{SEPARATOR_CHARS}]+|[{END_SENTENCE_CHARS}]+"
-)
-separator_pattern = re.compile(f"[{SEPARATOR_CHARS}]+")  # 压缩连续的分隔符
-end_sentence_pattern = re.compile(f"[{END_SENTENCE_CHARS}]+")  # 压缩连续的句末符
+punctuation_pattern = re.compile(f"，。|。，|[{SEPARATOR_CHARS}]+|[{END_SENTENCE_CHARS}]+")
+separator_pattern = re.compile(f"[{SEPARATOR_CHARS}]+")
+end_sentence_pattern = re.compile(f"[{END_SENTENCE_CHARS}]+")
 normalize_chinese_pattern = re.compile(f"[^{CHINESE_CHARS}{PUNCTUATION_CHARS}\n]")
-newline_pattern = re.compile(f"(?<=[{END_SENTENCE_CHARS}])\n")  # 句末换行符
-begin_with_punctuation_pattern = re.compile(f"^[{PUNCTUATION_CHARS}]+")  # 句首标点符号
+newline_pattern = re.compile(f"(?<=[{END_SENTENCE_CHARS}])\n")
+split_sentence_pattern = re.compile(r"(?<=[。\.])\s*")
+begin_with_punctuation_pattern = re.compile(f"^[{PUNCTUATION_CHARS}]+")
 
 
 def clean_text(text: str) -> str:
@@ -32,7 +30,7 @@ def clean_text(text: str) -> str:
 
 
 def normalize_punctuation(text: str) -> str:
-    def punctuation_replacer(match: re.Match):
+    def punctuation_replacer(match: re.Match) -> str:
         matched_text = match.group(0)
 
         if separator_pattern.fullmatch(matched_text):
@@ -77,8 +75,7 @@ def remove_duplicated_chars(text: str, char_threshold: int = 1) -> str:
 
 
 def remove_duplicated_sentences(paragraph: str, paragraph_threshold: float) -> str:
-    sentences = re.split(r"(?<=[。\.])\s*", paragraph)
-
+    sentences = split_sentence_pattern.split(paragraph)
     unique_sentences = []
     similar_sentences = set()
     for i, sentence in enumerate(sentences):
