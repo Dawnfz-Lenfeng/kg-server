@@ -1,8 +1,8 @@
 from ckgcus.preprocessing.clean_text import (
     clean_text,
-    standardize_punctuation,
-    remove_redundant_text,
     compress_chars,
+    remove_redundant_text,
+    standardize_punctuation,
 )
 
 
