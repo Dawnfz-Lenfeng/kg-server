@@ -2,99 +2,116 @@
 
 ## 项目描述
 
-CKG-CUS（Chinese Knowledge Graph Construction and Update System，中文知识图谱构建与更新系统）是一个用于从各种中文语料中构建和更新知识图谱的系统，旨在推动中文自然语言处理和学术探索。该系统提供了一整套工具链，从数据收集和预处理到知识图谱的构建与实时更新。它支持从 PDF 文件、图像文件等多种格式中提取数据，并集成了 OCR 和高级自然语言处理技术。
+CKG-CUS（Chinese Knowledge Graph Construction and Update System，中文知识图谱构建与更新系统）是一个用于从各种中文语料中构建和更新知识图谱的系统。该系统提供了完整的工具链，从文本提取、预处理到知识图谱的构建与可视化。它支持从 PDF 文件中提取文本，并集成了多种 OCR 技术。
+
+## 项目结构
+
+```
+ckgcus/
+├── backend/                # 后端服务
+│   ├── app/               # 应用代码
+│   │   ├── preprocessing/ # 文本预处理模块
+│   │   ├── models/       # 数据模型
+│   │   ├── api/          # API接口
+│   │   └── services/     # 业务逻辑
+│   └── tests/            # 测试代码
+└── frontend/              # 前端界面
+```
+
+## 安装说明
+
+### 后端安装
+
+1. 克隆项目：
+```bash
+git clone https://github.com/Dawnfz-Lenfeng/CKG-CUS.git
+cd CKG-CUS
+```
+
+2. 安装后端：
+```bash
+cd backend
+conda create -n ckgcus python=3.10
+conda activate ckgcus
+pip install -e .         # 安装基本依赖
+pip install -e ".[dev]"  # 安装开发依赖
+```
+
+3. OCR引擎选择：
+- 默认使用 `cnocr`（已包含在基本依赖中）
+- 可选安装 `paddleocr`：
+  ```bash
+  pip install -e ".[paddleocr]"
+  ```
+- 可选安装 `tesseract`：
+  - Windows：[Tesseract安装指南](https://github.com/UB-Mannheim/tesseract/wiki)
+  - macOS：`brew install tesseract`
+  ```bash
+  pip install -e ".[tesseract]"
+  ```
+
+### 前端安装
+
+```bash
+cd frontend
+npm install
+```
+
+## 开发运行
+
+1. 运行后端：
+```bash
+cd backend
+uvicorn app.main:app --reload
+```
+
+2. 运行前端：
+```bash
+cd frontend
+npm run dev
+```
+
 
 ## 主要功能
 
-- 从 PDF 文件中提取结构化或非结构化数据。
-- 使用 OCR 技术从图像或扫描的 PDF 中提取文本。
-- 提供多种文件预处理接口以供未来扩展。
-- 支持中英文混合文本的处理。
-- 自动更新和构建知识图谱。
+- 文本处理
+  - PDF文本提取
+  - OCR文本识别
+  - 文本清洗
+- 知识图谱
+  - 图谱构建
+  - 图谱更新
+  - 图谱可视化
+- 用户交互
+  - 文件上传
+  - 图谱展示
+  - 关键词管理
 
-## 安装
+## API文档
 
-请确保已安装 Python 3.10 及以上版本。使用以下步骤安装项目及其依赖项：
+启动后端服务后，访问：
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
-1. 安装本库
-    这里要仔细看。
-    ```bash
-    git clone https://github.com/Dawnfz-Lenfeng/CKG_CUS.git
-    cd ./CKG_CUS
-    pip install -e .
-    ```
-    此时是动态的安装，你可以任意修改源码，无需重新安装。源码在`CKG_CUS/ckgcus/`目录下。
-2. 安装其他依赖项：
-    OCR引擎会默认会使用 `cnOCR` ，识别精度较高，但是速度中等，不过无需额外安装。
+## 测试
 
-    另外可选的 OCR 引擎分别为 `paddleOCR` 和 `tesseract`。 
-    `paddleOCR`识别精度高，但是速度慢；`tesseract` 识别精度较低，但是速度最快。
-
-    - 如果选择使用 `tesseract` 作为 OCR 引擎，可以按照以下步骤安装 Tesseract：
-
-        - Windows 用户：[Tesseract OCR Windows 安装指南](https://github.com/UB-Mannheim/tesseract/wiki)
-        - macOS 用户：
-            ```bash
-            brew install tesseract
-            ```
-
-        再使用`pip install -e .[tesseract]` 安装。
-    - 如果选择使用 `paddleOCR` 作为 OCR 引擎，可以按照以下步骤安装 PaddleOCR：
-        ```bash
-        pip install -e .[paddleocr]
-        ```
-        如果用户名称为中文名导致无法使用，参考[这里](https://github.com/PaddlePaddle/PaddleOCR/issues/11794)。
-    - 如果全部安装，使用`pip install -e .[all]` 。
-
-
-## 使用示例
-
-以下是一些主要功能的简单使用示例，注意在OCR中使用了多进程，必须仿照此形式定义main()函数！！
-
-- 默认情况（优先使用 pdfplumber，失败时回退到 OCR 引擎）：
-```python
-from ckgcus.preprocessing import TextPreprocessor
-
-def main():
-    text_processor = TextPreprocessor.read_file(
-        'path/to/file.pdf', 
-        first_page=3, 
-        ocr_engine='cnocr',
-    )
-    text_processor.clean()  # 清洗
-    text_processor.save_to_file('output.txt')
-
-if __name__ == '__main__':
-    main()
+```bash
+cd backend
+pytest
 ```
 
-- 强制使用 OCR 引擎：
-此时不会使用 pdfplumber，而是直接使用 OCR 引擎。
-```python
-from ckgcus.preprocessing import TextPreprocessor
+## 贡献指南
 
-def main():
-    text_processor = TextPreprocessor.read_file(
-        'path/to/file.pdf', 
-        first_page=3, 
-        ocr_engine='cnocr', 
-        force_ocr=True
-    )
-    text_processor.clean()  # 清洗
-    text_processor.save_to_file('output.txt')
+1. Fork 项目
+2. 创建特性分支
+3. 提交更改
+4. 推送到分支
+5. 创建 Pull Request
 
-if __name__ == '__main__':
-    main()
-```
+## 作者
 
-## 贡献
+- Dawnfz-Lenfeng (2912706234@qq.com)
 
-欢迎对本项目进行贡献，包括但不限于：
+## 致谢
 
-- 提交代码修复和功能改进。
-- 添加新的预处理接口。
-- 提供更多使用示例和文档。
-
-## 许可证
-
-本项目遵循 MIT 许可证。请查看 `LICENSE` 文件了解更多信息。
+感谢所有贡献者的付出。
