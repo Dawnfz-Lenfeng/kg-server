@@ -15,90 +15,126 @@ MIN_SENT = 5
 RE_PUNCT = re.compile(f"，。|。，|[{COMMAS}]+|[{STOPS}]+")
 RE_COMMA = re.compile(f"[{COMMAS}]+")
 RE_STOP = re.compile(f"[{STOPS}]+")
-RE_CLEAN = re.compile(f"[^{HANZI}{PUNCTS}\n]")
+RE_NONZH = re.compile(f"[^{HANZI}{PUNCTS}\n]")
 RE_PARA = re.compile(f"(?<=[{STOPS}])\n")
 RE_SENT = re.compile(r"(?<=[。\.])\s*")
 RE_HEAD = re.compile(f"^[{PUNCTS}]+")
+RE_MULTI_PUNCT = re.compile(r"[，。]+")
 
 
 def clean_text(text: str) -> str:
-    """规范化文本：移除非中文字符，统一标点符号，去除重复内容"""
-    text = RE_CLEAN.sub("", text)
+    """清理文本：移除非中文字符，统一标点符号，去除重复内容"""
+    if not text:
+        return ""
+
+    text = RE_NONZH.sub("", text)
     text = standardize_punctuation(text)
     text = remove_redundant_text(text)
-    text = standardize_punctuation(text)
+    text = clean_consecutive_puncts(text)
     return text
+
+
+def clean_consecutive_puncts(text: str) -> str:
+    """清理连续的句号和逗号"""
+
+    def replace_puncts(match: re.Match) -> str:
+        puncts = match.group(0)
+        if "。" in puncts:
+            return "。"
+
+        return "，"
+
+    return RE_MULTI_PUNCT.sub(replace_puncts, text)
 
 
 def standardize_punctuation(text: str) -> str:
     """统一标点符号格式"""
-
-    def punctuation_replacer(match: re.Match) -> str:
-        matched_text = match.group(0)
-        if RE_COMMA.fullmatch(matched_text):
-            return "，"
-        elif RE_STOP.fullmatch(matched_text):
-            return "。"
-        elif matched_text in {"，。", "。，"}:
-            return "。"
-        return matched_text
-
-    return RE_PUNCT.sub(punctuation_replacer, text)
+    text = RE_COMMA.sub("，", text)
+    text = RE_STOP.sub("。", text)
+    # 处理连续标点
+    return clean_consecutive_puncts(text)
 
 
 def remove_redundant_text(text: str, similarity_threshold: float = 0.9) -> str:
     """移除文本中的重复内容"""
     text = compress_chars(text)
-    paragraphs = RE_PARA.split(text)
 
-    cleaned_paragraphs = []
-    for paragraph in paragraphs:
-        cleaned_paragraph = deduplicate_sentences(
-            paragraph.replace("\n", ""), similarity_threshold
-        )
-        if len(cleaned_paragraph) >= MIN_PARA:
-            cleaned_paragraphs.append(cleaned_paragraph)
+    cleaned_paras = []
+    for para in RE_PARA.split(text):
+        para = para.replace("\n", "")
+        if not para:
+            continue
 
-    return "\n".join(cleaned_paragraphs).strip()
+        cleaned = deduplicate_sentences(para, similarity_threshold)
+        if len(cleaned) >= MIN_PARA:
+            cleaned_paras.append(cleaned)
+
+    return "\n".join(cleaned_paras)
 
 
-def compress_chars(text: str, repeat_threshold: int = 1) -> str:
+def compress_chars(text: str, threshold: int = 2) -> str:
     """压缩连续重复的字符"""
     if not text:
         return ""
 
-    def compress_match(match):
-        char = match.group(0)[0]
-        length = len(match.group(0))
-        return char if length >= repeat_threshold else match.group(0)
+    chars = []
+    i = 0
+    while i < len(text):
+        curr_char = text[i]
+        j = i + 1
+        while j < len(text) and text[j] == curr_char:
+            j += 1
 
-    return re.sub(r"(.)\1+", compress_match, text)
+        repeat_count = j - i
+        if repeat_count > threshold:
+            chars.append(curr_char)
+        else:
+            chars.extend([curr_char] * repeat_count)
+        i = j
+
+    return "".join(chars)
 
 
-def deduplicate_sentences(paragraph: str, similarity_threshold: float) -> str:
+def deduplicate_sentences(paragraph: str, similarity_threshold: float = 0.9) -> str:
     """去除段落中的相似句子"""
-    sentences = RE_SENT.split(paragraph)
+    sentences = [s for s in RE_SENT.split(paragraph) if len(s) >= MIN_SENT]
+    if not sentences:
+        return ""
+
+    sent_features = {}
+    for sent in sentences:
+        sent_features[sent] = set(sent)
+
     unique_sentences = []
-    similar_sentences = set()
+    used = set()
 
-    for i, sentence in enumerate(sentences):
-        if len(sentence) < MIN_SENT or sentence in similar_sentences:
+    for i, sent1 in enumerate(sentences):
+        if sent1 in used:
             continue
-        unique_sentences.append(sentence)
 
-        for j in range(i + 1, len(sentences)):
-            if sentences[j] in similar_sentences or not sentences[j]:
+        chars1 = sent_features[sent1]
+        unique_sentences.append(sent1)
+        used.add(sent1)
+
+        for sent2 in sentences[i + 1 :]:
+            if sent2 in used:
                 continue
-            similarity = difflib.SequenceMatcher(None, sentence, sentences[j]).ratio()
-            if similarity >= similarity_threshold:
-                similar_sentences.add(sentences[j])
 
-    cleaned_paragraph = "".join(unique_sentences).strip()
-    return RE_HEAD.sub("", cleaned_paragraph)
+            chars2 = sent_features[sent2]
+            overlap = len(chars1 & chars2) / len(chars1 | chars2)
+
+            if overlap >= similarity_threshold:
+                if (
+                    difflib.SequenceMatcher(None, sent1, sent2).ratio()
+                    >= similarity_threshold
+                ):
+                    used.add(sent2)
+
+    return RE_HEAD.sub("", "".join(unique_sentences))
 
 
 if __name__ == "__main__":
     sample_text = """
-1234324545,+-*/()[]{},,，,\n .....asdg ，考虑比较重复而且符合长度的句子。。，，。，。考虑比较重复而且符合长度的句子，，。.，，,.，。。，rwe ◆∂δrew   423njf
+1234324545,+-*/()[]{},,，,\n .....asdg ，考虑比较重重复而且符合长度的句子。。，，。，。考虑比较重重复复而且符合长度的句子，，。.，，,.，。。，rwe ◆∂δrew   423njf
 """
     print(clean_text(sample_text))
