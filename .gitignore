@@ -1,5 +1,12 @@
-*.egg-info/
+# Docker
+.env
+postgres_data/
+backups/
+
+# Python
 __pycache__/
+*.pyc
+venv/
 build/
 *.log
-.*_cache
+.*_cache/
