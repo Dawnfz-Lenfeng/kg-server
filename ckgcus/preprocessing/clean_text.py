@@ -31,6 +31,9 @@ def clean_text(text: str) -> str:
     text = standardize_punctuation(text)
     text = remove_redundant_text(text)
     text = clean_consecutive_puncts(text)
+    if text == "。":
+        return ""
+
     return text
 
 
@@ -69,7 +72,7 @@ def remove_redundant_text(text: str, similarity_threshold: float = 0.9) -> str:
         if len(cleaned) >= MIN_PARA:
             cleaned_paras.append(cleaned)
 
-    return "\n".join(cleaned_paras)
+    return "\n".join(cleaned_paras) + "。"
 
 
 def compress_chars(text: str, threshold: int = 2) -> str:
