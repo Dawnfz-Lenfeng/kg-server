@@ -2,84 +2,87 @@ import difflib
 import re
 
 # 字符集
-CHINESE_CHARS = r"\u4e00-\u9fa5"
-SEPARATOR_CHARS = ",;，；"
-END_SENTENCE_CHARS = ".!?。！？"
-PUNCTUATION_CHARS = SEPARATOR_CHARS + END_SENTENCE_CHARS
+HANZI = r"\u4e00-\u9fa5"
+COMMAS = ",;，；"
+STOPS = ".!?。！？"
+PUNCTS = COMMAS + STOPS
 
-# 阈值
-PARAGRAPH_LENS = 15
-SETENCE_LENS = 5
+# 长度阈值
+MIN_PARA = 15
+MIN_SENT = 5
 
-# 正则表达式
-punctuation_pattern = re.compile(f"，。|。，|[{SEPARATOR_CHARS}]+|[{END_SENTENCE_CHARS}]+")
-separator_pattern = re.compile(f"[{SEPARATOR_CHARS}]+")
-end_sentence_pattern = re.compile(f"[{END_SENTENCE_CHARS}]+")
-normalize_chinese_pattern = re.compile(f"[^{CHINESE_CHARS}{PUNCTUATION_CHARS}\n]")
-newline_pattern = re.compile(f"(?<=[{END_SENTENCE_CHARS}])\n")
-split_sentence_pattern = re.compile(r"(?<=[。\.])\s*")
-begin_with_punctuation_pattern = re.compile(f"^[{PUNCTUATION_CHARS}]+")
+# 正则
+RE_PUNCT = re.compile(f"，。|。，|[{COMMAS}]+|[{STOPS}]+")
+RE_COMMA = re.compile(f"[{COMMAS}]+")
+RE_STOP = re.compile(f"[{STOPS}]+")
+RE_CLEAN = re.compile(f"[^{HANZI}{PUNCTS}\n]")
+RE_PARA = re.compile(f"(?<=[{STOPS}])\n")
+RE_SENT = re.compile(r"(?<=[。\.])\s*")
+RE_HEAD = re.compile(f"^[{PUNCTS}]+")
 
 
 def clean_text(text: str) -> str:
-    text = normalize_chinese_pattern.sub("", text)
-    text = normalize_punctuation(text)
-    text = remove_duplicated_text(text)
-    text = normalize_punctuation(text)
+    """规范化文本：移除非中文字符，统一标点符号，去除重复内容"""
+    text = RE_CLEAN.sub("", text)
+    text = standardize_punctuation(text)
+    text = remove_redundant_text(text)
+    text = standardize_punctuation(text)
     return text
 
 
-def normalize_punctuation(text: str) -> str:
+def standardize_punctuation(text: str) -> str:
+    """统一标点符号格式"""
+
     def punctuation_replacer(match: re.Match) -> str:
         matched_text = match.group(0)
-
-        if separator_pattern.fullmatch(matched_text):
+        if RE_COMMA.fullmatch(matched_text):
             return "，"
-        elif end_sentence_pattern.fullmatch(matched_text):
+        elif RE_STOP.fullmatch(matched_text):
             return "。"
         elif matched_text in {"，。", "。，"}:
             return "。"
-
         return matched_text
 
-    return punctuation_pattern.sub(punctuation_replacer, text)
+    return RE_PUNCT.sub(punctuation_replacer, text)
 
 
-def remove_duplicated_text(text: str, paragraph_threshold: float = 0.9) -> str:
-    text = remove_duplicated_chars(text)
-
-    paragraphs = newline_pattern.split(text)
+def remove_redundant_text(text: str, similarity_threshold: float = 0.9) -> str:
+    """移除文本中的重复内容"""
+    text = compress_chars(text)
+    paragraphs = RE_PARA.split(text)
 
     cleaned_paragraphs = []
     for paragraph in paragraphs:
-        cleaned_paragraph = remove_duplicated_sentences(
-            paragraph.replace("\n", ""), paragraph_threshold
+        cleaned_paragraph = deduplicate_sentences(
+            paragraph.replace("\n", ""), similarity_threshold
         )
-        if len(cleaned_paragraph) >= PARAGRAPH_LENS:
+        if len(cleaned_paragraph) >= MIN_PARA:
             cleaned_paragraphs.append(cleaned_paragraph)
 
-    cleaned_text = "\n".join(cleaned_paragraphs).strip()
-    return cleaned_text
+    return "\n".join(cleaned_paragraphs).strip()
 
 
-def remove_duplicated_chars(text: str, char_threshold: int = 1) -> str:
+def compress_chars(text: str, repeat_threshold: int = 1) -> str:
+    """压缩连续重复的字符"""
     if not text:
         return ""
 
     def compress_match(match):
         char = match.group(0)[0]
         length = len(match.group(0))
-        return char if length >= char_threshold else match.group(0)
+        return char if length >= repeat_threshold else match.group(0)
 
     return re.sub(r"(.)\1+", compress_match, text)
 
 
-def remove_duplicated_sentences(paragraph: str, paragraph_threshold: float) -> str:
-    sentences = split_sentence_pattern.split(paragraph)
+def deduplicate_sentences(paragraph: str, similarity_threshold: float) -> str:
+    """去除段落中的相似句子"""
+    sentences = RE_SENT.split(paragraph)
     unique_sentences = []
     similar_sentences = set()
+
     for i, sentence in enumerate(sentences):
-        if len(sentence) < SETENCE_LENS or sentence in similar_sentences:
+        if len(sentence) < MIN_SENT or sentence in similar_sentences:
             continue
         unique_sentences.append(sentence)
 
@@ -87,14 +90,11 @@ def remove_duplicated_sentences(paragraph: str, paragraph_threshold: float) -> s
             if sentences[j] in similar_sentences or not sentences[j]:
                 continue
             similarity = difflib.SequenceMatcher(None, sentence, sentences[j]).ratio()
-            if similarity >= paragraph_threshold:
+            if similarity >= similarity_threshold:
                 similar_sentences.add(sentences[j])
 
     cleaned_paragraph = "".join(unique_sentences).strip()
-    # 如果段落开头是标点符号，则去掉标点符号
-    cleaned_paragraph = begin_with_punctuation_pattern.sub("", cleaned_paragraph)
-
-    return cleaned_paragraph
+    return RE_HEAD.sub("", cleaned_paragraph)
 
 
 if __name__ == "__main__":

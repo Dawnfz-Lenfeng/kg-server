@@ -1,3 +1,4 @@
 /*.egg-info/
 /ckgcus/**/__pycache__/
 build/
+*.log
