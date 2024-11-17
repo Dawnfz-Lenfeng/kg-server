@@ -1,4 +1,4 @@
-from ckgcus.preprocessing.clean_text import (
+from app.preprocessing.clean_text import (
     clean_text,
     compress_chars,
     remove_redundant_text,

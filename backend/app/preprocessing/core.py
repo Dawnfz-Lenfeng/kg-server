@@ -9,7 +9,7 @@ logger.setLevel(logging.INFO)
 
 class TextPreprocessor:
     def __init__(self, text: str):
-        self.original_text = text  # 初始文本
+        self.original = text  # 初始文本
         self.text = text
 
     @classmethod
@@ -53,9 +53,9 @@ class TextPreprocessor:
         :param original: 是否输出原始文本
         """
         with open(output_path, "w", encoding="utf-8") as file:
-            file.write(self.text if not original else self.original_text)
+            file.write(self.text if not original else self.original)
 
     def clean(self):
-        """清理文本内容"""
+        """清理文本：移除非中文字符，统一标点符号，去除重复内容"""
         logger.info("Cleaning text...")
         self.text = clean_text(self.text)
