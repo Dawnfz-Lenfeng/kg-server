@@ -3,22 +3,22 @@ from app.models import *
 
 SUBJECTS = [
     {
-        "id": 0,
+        "id": 1,
         "name": "金融",
         "description": "包含金融理论、金融市场、投资学等相关文献",
     },
     {
-        "id": 1,
+        "id": 2,
         "name": "经济",
         "description": "包含宏观经济、微观经济、政治经济学等相关文献",
     },
     {
-        "id": 2,
+        "id": 3,
         "name": "统计",
         "description": "包含统计理论、统计方法、数理统计等相关文献",
     },
     {
-        "id": 3,
+        "id": 4,
         "name": "数据科学",
         "description": "包含机器学习、数据挖掘、人工智能等相关文献",
     },

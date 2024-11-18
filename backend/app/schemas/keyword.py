@@ -1,6 +1,4 @@
-from typing import Optional
-
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class KeywordBase(BaseModel):
@@ -24,20 +22,13 @@ class KeywordResponse(KeywordBase):
         from_attributes = True
 
 
-class DocumentKeywordBase(BaseModel):
-    """文档关键词关联基础模型"""
-
-    keyword_id: int
-    weight: float = Field(default=1.0, ge=0.0, le=1.0)
-
-
-class DocumentKeywordCreate(DocumentKeywordBase):
+class DocumentKeywordCreate(BaseModel):
     """创建文档关键词关联请求模型"""
 
-    pass
+    keyword_id: int
 
 
-class DocumentKeywordResponse(DocumentKeywordBase):
+class DocumentKeywordResponse(BaseModel):
     """文档关键词关联响应模型"""
 
     document_id: int

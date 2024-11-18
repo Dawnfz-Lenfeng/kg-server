@@ -25,6 +25,9 @@ docker-compose ps
 
 # 查看数据库日志
 docker-compose logs db
+
+# 进入数据库容器
+docker-compose exec db psql -U dev_user -d ckgcus
 ```
 
 ## 数据库结构
