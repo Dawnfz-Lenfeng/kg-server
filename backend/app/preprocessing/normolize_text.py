@@ -22,7 +22,7 @@ RE_HEAD = re.compile(f"^[{PUNCTS}]+")
 RE_MULTI_PUNCT = re.compile(r"[，。]+")
 
 
-def clean_text(text: str) -> str:
+def normalize_text(text: str) -> str:
     """清理文本：移除非中文字符，统一标点符号，去除重复内容"""
     if not text:
         return ""
@@ -140,4 +140,4 @@ if __name__ == "__main__":
     sample_text = """
 1234324545,+-*/()[]{},,，,\n .....asdg ，考虑比较重重复而且符合长度的句子。。，，。，。考虑比较重重复复而且符合长度的句子，，。.，，,.，。。，rwe ◆∂δrew   423njf
 """
-    print(clean_text(sample_text))
+    print(normalize_text(sample_text))

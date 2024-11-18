@@ -29,22 +29,33 @@ THREAD_LOCK = threading.Lock()
 
 def extract_text(
     path: str,
-    start: int = 1,
-    end: Optional[int] = None,
-    ocr: str = "cnocr",
-    workers: int = 1,
-    force: bool = False,
+    first_page: int = 1,
+    last_page: Optional[int] = None,
+    ocr_engine: str = "cnocr",
+    workers: int = 4,
+    force_ocr: bool = False,
 ) -> str:
-    """从文件中提取文本内容"""
-    ocr = ocr.lower()
+    """提取文本内容. 如果文件是 pdf, 会优先使用 pdfolumber 提取文本, 否则使用 OCR 提取文本.
+
+    :param path: 需要处理的文件路径
+    :param first_page: 需要处理的起始页码, 默认为1
+    :param last_page: 需要处理的结束页码, 默认为None, 表示处理到最后一页
+    :param ocr_engine: OCR引擎, 默认为 'cnocr', 可选 'tesseract', 'paddleocr'
+        - cnocr: 精度和速度都适中
+        - paddleocr: 精度最高但是最慢
+        - tesseract: 精度最低但是最快
+    :param workers: 用于并行处理的线程数, 默认为4
+    :param force_ocr: 是否强制使用 OCR 引擎, 默认为 False
+    """
+    ocr_engine = ocr_engine.lower()
     OCR_ENGINES = {
         "cnocr": extract_with_cnocr,
         "paddleocr": (extract_with_paddle, PaddleOCR, "paddleocr"),
         "tesseract": (extract_with_tesseract, pytesseract, "pytesseract"),
     }
 
-    if ocr not in OCR_ENGINES:
-        raise ValueError(f"Unsupported OCR engine: {ocr}")
+    if ocr_engine not in OCR_ENGINES:
+        raise ValueError(f"Unsupported OCR engine: {ocr_engine}")
 
     ext = path.split(".")[-1].lower()
     if ext not in {"pdf", "txt"}:
@@ -53,19 +64,19 @@ def extract_text(
     if ext == "txt":
         return read_txt(path)
 
-    pages = get_pdf_pages(path, start, end)
+    pages = get_pdf_pages(path, first_page, last_page)
 
-    if not force:
+    if not force_ocr:
         if text := extract_pdf_text(path, pages):
             return text
         logger.info("PDFplumber extraction failed, trying OCR...")
 
-    engine = OCR_ENGINES[ocr]
+    engine = OCR_ENGINES[ocr_engine]
     if isinstance(engine, tuple):
         extract_func, module, name = engine
         if module is None:
             raise ImportError(f"{name} not installed")
-        if ocr == "tesseract":
+        if ocr_engine == "tesseract":
             os.environ["OMP_THREAD_LIMIT"] = "1"
         text = extract_func(path, pages, workers)
     else:

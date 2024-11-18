@@ -1,5 +1,5 @@
-from app.preprocessing.clean_text import (
-    clean_text,
+from app.preprocessing.normolize_text import (
+    normalize_text,
     compress_chars,
     remove_redundant_text,
     standardize_punctuation,
@@ -46,15 +46,15 @@ def test_remove_redundant_text():
 
 def test_clean_text_handles_empty_input():
     """测试空输入处理"""
-    assert clean_text("") == ""
-    assert clean_text(" ") == ""
-    assert clean_text("\n") == ""
+    assert normalize_text("") == ""
+    assert normalize_text(" ") == ""
+    assert normalize_text("\n") == ""
 
 
 def test_clean_text_removes_short_content():
     """测试删除过短内容"""
     text = "短。这是一个比较完整的长句子测试。太短。"
-    result = clean_text(text)
+    result = normalize_text(text)
     assert "这是一个比较完整的长句子测试。" in result
     assert "短。" not in result
     assert "太短。" not in result
@@ -80,4 +80,4 @@ def test_clean_text_integration():
     ]
 
     for input_text, expected in cases:
-        assert clean_text(input_text) == expected
+        assert normalize_text(input_text) == expected

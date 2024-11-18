@@ -1,6 +1,6 @@
 import logging
 
-from .clean_text import clean_text
+from .normolize_text import normalize_text
 from .extract_text import extract_text
 
 logger = logging.getLogger(__name__)
@@ -58,4 +58,4 @@ class TextPreprocessor:
     def clean(self):
         """清理文本：移除非中文字符，统一标点符号，去除重复内容"""
         logger.info("Cleaning text...")
-        self.text = clean_text(self.text)
+        self.text = normalize_text(self.text)

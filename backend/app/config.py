@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     """应用配置"""
 
     # 数据库配置
-    DATABASE_URL: str = "postgresql://dev_user:dev_password@localhost:5432/ckgcus"
+    DATABASE_URL: str
 
     # 文件存储配置
     UPLOAD_DIR: str = "uploads"
