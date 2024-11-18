@@ -1,9 +1,0 @@
-Metadata-Version: 2.1
-Name: ckgcus-backend
-Version: 0.1.0
-Summary: Knowledge Graph Construction System Backend
-Author: Dawnfz-Lenfeng
-Author-email: 2912706234@qq.com
-License: MIT
-Requires-Python: >=3.8
-Provides-Extra: dev
