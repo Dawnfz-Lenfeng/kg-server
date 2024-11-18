@@ -4,12 +4,19 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..schemas.document import DocumentCreate, DocumentResponse, DocumentUpdate
+from ..schemas.document import (
+    DocumentCreate,
+    DocumentListResponse,
+    DocumentResponse,
+    DocumentUpdate,
+)
 from ..services.document import (
     create_document,
     delete_document,
     get_document,
     get_documents,
+    renormalize_document_text,
+    reprocess_document_text,
     update_document,
 )
 
@@ -19,8 +26,13 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 @router.post("/", response_model=DocumentResponse)
 async def upload_document(
     file: UploadFile = File(...),
-    title: str = Form(...),
-    subject_id: int = Form(...),
+    title: Optional[str] = None,
+    subject_id: Optional[int] = None,
+    num_workers: int = 4,
+    ocr_engine: str = "cnocr",
+    force_ocr: bool = False,
+    char_threshold: int = 2,
+    sentence_threshold: float = 0.9,
     db: Session = Depends(get_db),
 ):
     """上传新文档"""
@@ -34,18 +46,80 @@ async def upload_document(
     # 创建文档模型
     document = DocumentCreate(title=title, file_type=file_type, subject_id=subject_id)
 
-    return await create_document(db, document, file)
+    return await create_document(
+        db,
+        document,
+        file,
+        num_workers,
+        ocr_engine,
+        force_ocr,
+        char_threshold,
+        sentence_threshold,
+    )
+
+
+@router.post("/{document_id}/reprocess", response_model=DocumentResponse)
+async def reprocess_document_api(
+    document_id: int,
+    num_workers: int = 4,
+    ocr_engine: str = "cnocr",
+    force_ocr: bool = False,
+    char_threshold: int = 2,
+    sentence_threshold: float = 0.9,
+    db: Session = Depends(get_db),
+):
+    """重新提取文档文本"""
+    try:
+        if document := await reprocess_document_text(
+            db,
+            document_id,
+            num_workers,
+            ocr_engine,
+            force_ocr,
+            char_threshold,
+            sentence_threshold,
+        ):
+            return document
+        raise HTTPException(status_code=404, detail="Document not found")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Reprocess failed: {str(e)}")
+
+
+@router.post("/{document_id}/renormalize", response_model=DocumentResponse)
+async def renormalize_document_api(
+    document_id: int,
+    char_threshold: int = 2,
+    sentence_threshold: float = 0.9,
+    db: Session = Depends(get_db),
+):
+    """重新清洗文档文本"""
+    try:
+        if document := await renormalize_document_text(
+            db,
+            document_id,
+            char_threshold,
+            sentence_threshold,
+        ):
+            return document
+        raise HTTPException(status_code=404, detail="Document not found")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Renormalize failed: {str(e)}")
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
-async def read_document(document_id: int, db: Session = Depends(get_db)):
+async def read_document(
+    document_id: int, include_origin: bool = False, db: Session = Depends(get_db)
+):
     """获取单个文档"""
     if document := await get_document(db, document_id):
-        return document
+        response = document.__dict__.copy()
+        if not include_origin:
+            response.pop("origin_text", None)
+        return response
     raise HTTPException(status_code=404, detail="Document not found")
 
 
-@router.get("/", response_model=List[DocumentResponse])
+@router.get("/", response_model=List[DocumentListResponse])
 async def read_documents(
     skip: int = 0,
     limit: int = 10,

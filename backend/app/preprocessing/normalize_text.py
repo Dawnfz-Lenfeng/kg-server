@@ -22,14 +22,21 @@ RE_HEAD = re.compile(f"^[{PUNCTS}]+")
 RE_MULTI_PUNCT = re.compile(r"[，。]+")
 
 
-def normalize_text(text: str) -> str:
-    """清理文本：移除非中文字符，统一标点符号，去除重复内容"""
+def normalize_text(
+    text: str, char_threshold: int = 2, sentence_threshold: float = 0.9
+) -> str:
+    """清理文本：移除非中文字符，统一标点符号，去除重复内容
+
+    :param text: 待清理的文本
+    :param char_threshold: 连续重复字符的最小长度
+    :param sentence_threshold: 句子重复度的阈值
+    """
     if not text:
         return ""
 
     text = RE_NONZH.sub("", text)
     text = standardize_punctuation(text)
-    text = remove_redundant_text(text)
+    text = remove_redundant_text(text, char_threshold, sentence_threshold)
     text = clean_consecutive_puncts(text)
     if text == "。":
         return ""
@@ -58,9 +65,11 @@ def standardize_punctuation(text: str) -> str:
     return clean_consecutive_puncts(text)
 
 
-def remove_redundant_text(text: str, similarity_threshold: float = 0.9) -> str:
+def remove_redundant_text(
+    text: str, char_threshold: int = 2, sentence_threshold: float = 0.9
+) -> str:
     """移除文本中的重复内容"""
-    text = compress_chars(text)
+    text = compress_chars(text, char_threshold)
 
     cleaned_paras = []
     for para in RE_PARA.split(text):
@@ -68,14 +77,14 @@ def remove_redundant_text(text: str, similarity_threshold: float = 0.9) -> str:
         if not para:
             continue
 
-        cleaned = deduplicate_sentences(para, similarity_threshold)
+        cleaned = deduplicate_sentences(para, sentence_threshold)
         if len(cleaned) >= MIN_PARA:
             cleaned_paras.append(cleaned)
 
     return "\n".join(cleaned_paras) + "。"
 
 
-def compress_chars(text: str, threshold: int = 2) -> str:
+def compress_chars(text: str, char_threshold: int = 2) -> str:
     """压缩连续重复的字符"""
     if not text:
         return ""
@@ -89,7 +98,7 @@ def compress_chars(text: str, threshold: int = 2) -> str:
             j += 1
 
         repeat_count = j - i
-        if repeat_count > threshold:
+        if repeat_count > char_threshold:
             chars.append(curr_char)
         else:
             chars.extend([curr_char] * repeat_count)

@@ -14,3 +14,8 @@ build/
 
 # Database
 uploads/
+
+# Alembic
+backend/alembic/versions/
+!backend/alembic/versions/.gitkeep
+!backend/alembic/versions/README.md

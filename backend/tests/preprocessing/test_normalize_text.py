@@ -1,4 +1,4 @@
-from app.preprocessing.normolize_text import (
+from app.preprocessing.normalize_text import (
     compress_chars,
     normalize_text,
     remove_redundant_text,
@@ -27,7 +27,7 @@ def test_compress_chars():
         ("啊啊啊测试测试。", "啊测试测试。"),  # 刚好达到阈值压缩
     ]
     for input_text, expected in cases:
-        assert compress_chars(input_text, threshold=2) == expected
+        assert compress_chars(input_text, char_threshold=2) == expected
 
 
 def test_remove_redundant_text():

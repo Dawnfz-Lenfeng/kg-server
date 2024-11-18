@@ -13,6 +13,7 @@ class Document(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
     file_path = Column(String, nullable=False)
+    origin_text = Column(Text)
     processed_text = Column(Text)
     file_type = Column(String, nullable=False)
     subject_id = Column(Integer, ForeignKey("subjects.id"))

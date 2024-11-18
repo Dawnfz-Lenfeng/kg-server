@@ -29,14 +29,20 @@ class DocumentUpdate(BaseModel):
     )
 
 
-class DocumentResponse(DocumentBase):
-    """文档响应模型"""
+class DocumentListResponse(DocumentBase):
+    """文档列表响应模型"""
 
     id: int = Field(..., description="文档ID")
     file_path: str = Field(..., description="文件路径")
-    processed_text: Optional[str] = Field(None, description="处理后的文本内容")
     created_at: datetime = Field(..., description="创建时间")
     updated_at: datetime = Field(..., description="更新时间")
 
     class Config:
         from_attributes = True
+
+
+class DocumentResponse(DocumentListResponse):
+    """完整文档响应模型"""
+
+    processed_text: Optional[str] = Field(None, description="处理后的文本内容")
+    origin_text: Optional[str] = Field(None, description="原始文本内容")
