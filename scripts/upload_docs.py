@@ -2,10 +2,9 @@ import argparse
 from pathlib import Path
 
 import requests
-from app.schemas.subject import SubjectId
 
 
-def upload_document(file_path: str, title: str, subject_id: SubjectId):
+def upload_document(file_path: str, title: str, subject_id: int):
     """上传单个文档"""
     url = "http://localhost:8000/api/v1/documents"
 
@@ -25,7 +24,7 @@ def upload_document(file_path: str, title: str, subject_id: SubjectId):
             return None
 
 
-def batch_upload(folder_path: str, subject_id: SubjectId):
+def batch_upload(folder_path: str, subject_id: int):
     """批量上传文件夹中的文档"""
     docs_dir = Path(folder_path)
     if not docs_dir.exists():
@@ -48,21 +47,19 @@ def main():
     parser.add_argument(
         "--subject",
         type=int,
-        choices=[s.value for s in SubjectId],
         required=True,
         help="学科ID (1=金融, 2=经济, 3=统计, 4=数据科学)",
     )
 
     args = parser.parse_args()
-    subject_id = SubjectId(args.subject)
 
     if args.file:
         # 单文件上传
         title = args.title or Path(args.file).stem
-        upload_document(args.file, title, subject_id)
+        upload_document(args.file, title, args.subject)
     else:
         # 批量上传
-        batch_upload(args.folder, subject_id)
+        batch_upload(args.folder, args.subject)
 
 
 if __name__ == "__main__":

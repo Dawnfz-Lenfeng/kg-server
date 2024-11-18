@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Float, ForeignKey, Integer, String, Table
+from sqlalchemy import Column, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import relationship
 
 from ..database import Base
@@ -9,7 +9,6 @@ document_keywords = Table(
     Base.metadata,
     Column("document_id", ForeignKey("documents.id"), primary_key=True),
     Column("keyword_id", ForeignKey("keywords.id"), primary_key=True),
-    Column("weight", Float, nullable=False, default=1.0),
 )
 
 
@@ -21,6 +20,6 @@ class Keyword(Base):
 
     documents = relationship(
         "Document",
-        secondary=document_keywords,  # 使用 Table 对象
-        back_populates="keywords"
+        secondary=document_keywords,
+        back_populates="keywords",
     )

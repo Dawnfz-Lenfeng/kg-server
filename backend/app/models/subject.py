@@ -7,7 +7,7 @@ from ..database import Base
 class Subject(Base):
     __tablename__ = "subjects"
 
-    id = Column(Integer, primary_key=True, autoincrement=False)
+    id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, unique=True)
     description = Column(Text)
 

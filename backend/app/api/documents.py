@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -19,8 +19,8 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 @router.post("/", response_model=DocumentResponse)
 async def upload_document(
     file: UploadFile = File(...),
-    title: str = None,
-    subject_id: Optional[int] = None,
+    title: str = Form(...),
+    subject_id: int = Form(...),
     db: Session = Depends(get_db),
 ):
     """上传新文档"""

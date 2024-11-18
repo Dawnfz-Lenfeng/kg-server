@@ -16,7 +16,7 @@ python -m scripts.upload_docs --file "data/金融市场.pdf" --subject 1
 #### 2. 批量上传
 ```bash
 # 上传整个文件夹中的PDF文件
-python -m scripts.upload_docs --folder "data/金融文献" --subject 1
+python -m scripts.upload_docs --folder "data/金融" --subject 1
 ```
 
 #### 学科ID对照表
@@ -29,7 +29,6 @@ python -m scripts.upload_docs --folder "data/金融文献" --subject 1
 
 #### 注意事项
 1. 确保文件存在且可读
-2. 文件大小不超过20MB
-3. 仅支持PDF和TXT格式
-4. 使用正确的学科ID
-5. 文件名避免使用特殊字符
+2. 仅支持PDF和TXT格式
+3. 使用正确的学科ID
+4. 文件名避免使用特殊字符

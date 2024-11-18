@@ -15,7 +15,7 @@ class Document(Base):
     file_path = Column(String, nullable=False)
     processed_text = Column(Text)
     file_type = Column(String, nullable=False)
-    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
+    subject_id = Column(Integer, ForeignKey("subjects.id"))
     created_at = Column(DateTime(timezone=True), default=datetime.now, nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
@@ -28,5 +28,5 @@ class Document(Base):
     keywords = relationship(
         "Keyword",
         secondary=document_keywords,
-        back_populates="documents"
+        back_populates="documents",
     )
