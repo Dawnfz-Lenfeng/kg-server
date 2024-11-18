@@ -1,25 +1,29 @@
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.subject import Subject
-from app.schemas.subject import SubjectType
+from app.schemas.subject import SubjectId
 
 SUBJECTS = [
-    {"name": "金融", "type": SubjectType.FINANCE, "description": "包含金融理论、金融市场、投资学等相关文献"},
     {
+        "id": SubjectId.FINANCE,
+        "name": "金融",
+        "description": "包含金融理论、金融市场、投资学等相关文献"
+    },
+    {
+        "id": SubjectId.ECONOMICS,
         "name": "经济",
-        "type": SubjectType.ECONOMICS,
-        "description": "包含宏观经济、微观经济、政治经济学等相关文献",
+        "description": "包含宏观经济、微观经济、政治经济学等相关文献"
     },
     {
+        "id": SubjectId.STATISTICS,
         "name": "统计",
-        "type": SubjectType.STATISTICS,
-        "description": "包含统计理论、统计方法、数理统计等相关文献",
+        "description": "包含统计理论、统计方法、数理统计等相关文献"
     },
     {
+        "id": SubjectId.DATA_SCIENCE,
         "name": "数据科学",
-        "type": SubjectType.DATA_SCIENCE,
-        "description": "包含机器学习、数据挖掘、人工智能等相关文献",
-    },
+        "description": "包含机器学习、数据挖掘、人工智能等相关文献"
+    }
 ]
 
 
@@ -28,10 +32,10 @@ def init_subjects():
     db = SessionLocal()
     try:
         # 检查是否已存在
-        existing = {subject.type: subject for subject in db.query(Subject).all()}
+        existing = {subject.id: subject for subject in db.query(Subject).all()}
 
         for subject_data in SUBJECTS:
-            if subject_data["type"] not in existing:
+            if subject_data["id"] not in existing:
                 subject = Subject(**subject_data)
                 db.add(subject)
 

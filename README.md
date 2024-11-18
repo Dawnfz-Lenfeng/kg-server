@@ -19,6 +19,7 @@ cd CKG-CUS
 
 2. 启动数据库
 ```bash
+cp .env.example .env
 docker-compose up -d db
 ```
 
@@ -29,12 +30,12 @@ pip install -e .
 uvicorn app.main:app --reload
 ```
 
-4. 安装和运行前端
+<!-- 4. 安装和运行前端
 ```bash
 cd frontend
 npm install
 npm run dev
-```
+``` -->
 
 ## 详细文档
 - [安装指南](docs/installation.md)
