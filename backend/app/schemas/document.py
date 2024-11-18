@@ -1,14 +1,19 @@
 from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel
+from typing import Optional
+
+from pydantic import BaseModel, Field
+
+from .subject import SubjectId
 
 
 class DocumentBase(BaseModel):
     """文档基础模型"""
 
-    title: str
-    file_type: str
-    subject_id: Optional[int] = None
+    title: str = Field(..., description="文档标题")
+    file_type: str = Field(..., description="文件类型 (pdf, txt)")
+    subject_id: Optional[SubjectId] = Field(
+        None, description="学科ID (1=金融, 2=经济, 3=统计, 4=数据科学)"
+    )
 
 
 class DocumentCreate(DocumentBase):
@@ -20,18 +25,20 @@ class DocumentCreate(DocumentBase):
 class DocumentUpdate(BaseModel):
     """更新文档请求模型"""
 
-    title: Optional[str] = None
-    subject_id: Optional[int] = None
+    title: Optional[str] = Field(None, description="文档标题")
+    subject_id: Optional[SubjectId] = Field(
+        None, description="学科ID (1=金融, 2=经济, 3=统计, 4=数据科学)"
+    )
 
 
 class DocumentResponse(DocumentBase):
     """文档响应模型"""
 
-    id: int
-    file_path: str
-    processed_text: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
+    id: int = Field(..., description="文档ID")
+    file_path: str = Field(..., description="文件路径")
+    processed_text: Optional[str] = Field(None, description="处理后的文本内容")
+    created_at: datetime = Field(..., description="创建时间")
+    updated_at: datetime = Field(..., description="更新时间")
 
     class Config:
         from_attributes = True

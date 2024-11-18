@@ -1,6 +1,6 @@
 from app.preprocessing.normolize_text import (
-    normalize_text,
     compress_chars,
+    normalize_text,
     remove_redundant_text,
     standardize_punctuation,
 )

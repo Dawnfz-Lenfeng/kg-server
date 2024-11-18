@@ -1,10 +1,12 @@
 from typing import List, Optional
+
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
+
 from ..models.document import Document
-from ..schemas.document import DocumentCreate, DocumentUpdate
 from ..preprocessing.extract_text import extract_text
 from ..preprocessing.normolize_text import normalize_text
+from ..schemas.document import DocumentCreate, DocumentUpdate
 
 
 async def create_document(
@@ -12,6 +14,7 @@ async def create_document(
 ) -> Document:
     """创建新文档"""
     import os
+
     from fastapi import HTTPException
 
     # 保存文件

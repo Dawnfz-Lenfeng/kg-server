@@ -32,7 +32,7 @@ def extract_text(
     first_page: int = 1,
     last_page: Optional[int] = None,
     ocr_engine: str = "cnocr",
-    workers: int = 4,
+    num_workers: int = 4,
     force_ocr: bool = False,
 ) -> str:
     """提取文本内容. 如果文件是 pdf, 会优先使用 pdfolumber 提取文本, 否则使用 OCR 提取文本.
@@ -44,7 +44,7 @@ def extract_text(
         - cnocr: 精度和速度都适中
         - paddleocr: 精度最高但是最慢
         - tesseract: 精度最低但是最快
-    :param workers: 用于并行处理的线程数, 默认为4
+    :param num_workers: 用于并行处理的线程数, 默认为4
     :param force_ocr: 是否强制使用 OCR 引擎, 默认为 False
     """
     ocr_engine = ocr_engine.lower()
@@ -78,9 +78,9 @@ def extract_text(
             raise ImportError(f"{name} not installed")
         if ocr_engine == "tesseract":
             os.environ["OMP_THREAD_LIMIT"] = "1"
-        text = extract_func(path, pages, workers)
+        text = extract_func(path, pages, num_workers)
     else:
-        text = engine(path, pages, workers)
+        text = engine(path, pages, num_workers)
 
     if not text:
         logger.warning("No text content extracted")

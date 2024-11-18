@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .database import engine, Base
+from .database import Base, engine
+from .models import *
 
 # 创建数据库表
 Base.metadata.create_all(bind=engine)
