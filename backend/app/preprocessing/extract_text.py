@@ -130,7 +130,7 @@ def extract_with_cnocr(file_path: str, pages: list[int], workers: int) -> str:
     """使用CnOCR提取文本"""
     ocr = CnOcr()
 
-    def process_page(file_path: str, num: int) -> str | None:
+    def extract_page(file_path: str, num: int) -> str | None:
         if img := convert_page_to_image(file_path, num):
             try:
                 res = ocr.ocr(img)
@@ -139,7 +139,7 @@ def extract_with_cnocr(file_path: str, pages: list[int], workers: int) -> str:
                 logger.warning(f"Error processing page {num}: {e}")
         return None
 
-    return extract_with_ocr(file_path, pages, workers, "cnocr", process_page)
+    return extract_with_ocr(file_path, pages, workers, "cnocr", extract_page)
 
 
 def extract_with_tesseract(file_path: str, pages: list[int], workers: int) -> str:

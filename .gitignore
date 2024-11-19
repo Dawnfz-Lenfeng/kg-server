@@ -19,3 +19,5 @@ uploads/
 backend/alembic/versions/
 !backend/alembic/versions/.gitkeep
 !backend/alembic/versions/README.md
+
+.paddleocr/

@@ -113,6 +113,7 @@ async def test_create_with_different_engines(
             ),
             file=pdf_file,
             ocr_engine=ocr_engine,
+            force_ocr=True,
         )
         assert doc.origin_text
         assert doc.processed_text
