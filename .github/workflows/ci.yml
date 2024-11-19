@@ -66,7 +66,6 @@ jobs:
         cache-dependency-path: |
           backend/pyproject.toml
           backend/setup.cfg
-          backend/requirements*.txt
 
     - name: Install OCR dependencies
       run: |
@@ -77,6 +76,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         cd backend
+        pip install pytest pytest-asyncio pytest-cov
         pip install -e ".[all]"
 
     - name: Run tests
