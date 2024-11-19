@@ -66,16 +66,14 @@ def extract_text(
             return text
         logger.info("PDFplumber extraction failed, trying OCR...")
 
-    engine = OCR_ENGINES[ocr_engine]
-    if isinstance(engine, tuple):
-        extract_func, module, name = engine
-        if module is None:
-            raise ImportError(f"{name} not installed")
-        if ocr_engine == "tesseract":
-            os.environ["OMP_THREAD_LIMIT"] = "1"
-        text = extract_func(path, pages, num_workers)
-    else:
-        text = engine(path, pages, num_workers)
+    extract_func, module = OCR_ENGINES[ocr_engine]
+
+    if module is None:
+        raise ImportError(f"{ocr_engine} not installed")
+    if ocr_engine == "tesseract":
+        os.environ["OMP_THREAD_LIMIT"] = "1"
+
+    text = extract_func(path, pages, num_workers)
 
     if not text:
         logger.warning("No text content extracted")
@@ -208,10 +206,8 @@ def get_pdf_pages(path: str, start: int, end: int | None) -> list[int]:
     return list(range(start, end + 1))
 
 
-OCRConfig = Callable[..., str] | tuple[Callable[..., str], object, str]
-
-OCR_ENGINES: dict[str, OCRConfig] = {
-    "cnocr": extract_with_cnocr,
-    "paddleocr": (extract_with_paddle, PaddleOCR, "paddleocr"),
-    "tesseract": (extract_with_tesseract, pytesseract, "pytesseract"),
+OCR_ENGINES: dict[str, tuple[Callable[..., str], object]] = {
+    "cnocr": (extract_with_cnocr, CnOcr),
+    "paddleocr": (extract_with_paddle, PaddleOCR),
+    "tesseract": (extract_with_tesseract, pytesseract),
 }
