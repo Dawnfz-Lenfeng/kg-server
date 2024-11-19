@@ -40,7 +40,6 @@ async def upload_document(
     doc_title = title if title is not None else file.filename
     file_type = file.filename.split(".")[-1].lower()
 
-    # 创建文档模型
     document = DocumentCreate(
         title=doc_title, file_type=file_type, subject_id=subject_id
     )
@@ -68,20 +67,18 @@ async def reprocess_document_api(
     db: Session = Depends(get_db),
 ):
     """重新提取文档文本"""
-    try:
-        if document := await reprocess_document_text(
-            db,
-            document_id,
-            num_workers,
-            ocr_engine,
-            force_ocr,
-            char_threshold,
-            sentence_threshold,
-        ):
-            return document
+    document = await reprocess_document_text(
+        db,
+        document_id,
+        num_workers,
+        ocr_engine,
+        force_ocr,
+        char_threshold,
+        sentence_threshold,
+    )
+    if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Reprocess failed: {str(e)}")
+    return document
 
 
 @router.post("/{document_id}/renormalize", response_model=DocumentResponse)
@@ -92,17 +89,15 @@ async def renormalize_document_api(
     db: Session = Depends(get_db),
 ):
     """重新清洗文档文本"""
-    try:
-        if document := await renormalize_document_text(
-            db,
-            document_id,
-            char_threshold,
-            sentence_threshold,
-        ):
-            return document
+    document = await renormalize_document_text(
+        db,
+        document_id,
+        char_threshold,
+        sentence_threshold,
+    )
+    if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Renormalize failed: {str(e)}")
+    return document
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
@@ -110,12 +105,14 @@ async def read_document(
     document_id: int, include_origin: bool = False, db: Session = Depends(get_db)
 ):
     """获取单个文档"""
-    if document := await get_document(db, document_id):
-        response = document.__dict__.copy()
-        if not include_origin:
-            response.pop("origin_text", None)
-        return response
-    raise HTTPException(status_code=404, detail="Document not found")
+    document = await get_document(db, document_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    response = document.__dict__.copy()
+    if not include_origin:
+        response.pop("origin_text", None)
+    return response
 
 
 @router.get("/", response_model=list[DocumentListResponse])
@@ -134,14 +131,15 @@ async def update_document_api(
     document_id: int, document: DocumentUpdate, db: Session = Depends(get_db)
 ):
     """更新文档"""
-    if updated := await update_document(db, document_id, document):
-        return updated
-    raise HTTPException(status_code=404, detail="Document not found")
+    updated = await update_document(db, document_id, document)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return updated
 
 
 @router.delete("/{document_id}")
 async def delete_document_api(document_id: int, db: Session = Depends(get_db)):
     """删除文档"""
-    if await delete_document(db, document_id):
-        return {"message": "Document deleted"}
-    raise HTTPException(status_code=404, detail="Document not found")
+    if not await delete_document(db, document_id):
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {"message": "Document deleted"}

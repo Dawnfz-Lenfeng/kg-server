@@ -37,9 +37,11 @@ async def search_keyword(
             status_code=400, detail="Either keyword_id or keyword_name must be provided"
         )
 
-    if keyword := await get_keyword(db, keyword_id, keyword_name):
-        return keyword
-    raise HTTPException(status_code=404, detail="Keyword not found")
+    keyword = await get_keyword(db, keyword_id, keyword_name)
+    if keyword is None:
+        raise HTTPException(status_code=404, detail="Keyword not found")
+
+    return keyword
 
 
 @router.get("/", response_model=list[KeywordResponse])
@@ -56,17 +58,20 @@ async def read_keywords(
 @router.get("/{keyword_id}", response_model=KeywordResponse)
 async def read_keyword(keyword_id: int, db: Session = Depends(get_db)):
     """通过ID获取单个关键词"""
-    if keyword := await get_keyword(db, keyword_id=keyword_id):
-        return keyword
-    raise HTTPException(status_code=404, detail="Keyword not found")
+    keyword = await get_keyword(db, keyword_id=keyword_id)
+    if keyword is None:
+        raise HTTPException(status_code=404, detail="Keyword not found")
+
+    return keyword
 
 
 @router.delete("/{keyword_id}")
 async def delete_keyword_api(keyword_id: int, db: Session = Depends(get_db)):
     """删除关键词"""
-    if await delete_keyword(db, keyword_id):
-        return {"message": "Keyword deleted"}
-    raise HTTPException(status_code=404, detail="Keyword not found")
+    if not await delete_keyword(db, keyword_id):
+        raise HTTPException(status_code=404, detail="Keyword not found")
+
+    return {"message": "Keyword deleted"}
 
 
 # 文档关键词关联接口
@@ -77,9 +82,11 @@ async def create_document_keyword_api(
     db: Session = Depends(get_db),
 ):
     """为文档添加关键词"""
-    if doc_keyword := await create_document_keyword(db, document_id, keyword_id):
-        return doc_keyword
-    raise HTTPException(status_code=404, detail="Document or keyword not found")
+    doc_keyword = await create_document_keyword(db, document_id, keyword_id)
+    if doc_keyword is None:
+        raise HTTPException(status_code=404, detail="Document or keyword not found")
+
+    return doc_keyword
 
 
 @router.get("/document/{document_id}", response_model=list[DocumentKeywordResponse])
@@ -98,8 +105,9 @@ async def delete_document_keyword_api(
     db: Session = Depends(get_db),
 ):
     """删除文档的关键词关联"""
-    if await delete_document_keyword(db, document_id, keyword_id):
-        return {"message": "Document keyword association deleted"}
-    raise HTTPException(
-        status_code=404, detail="Document keyword association not found"
-    )
+    if not await delete_document_keyword(db, document_id, keyword_id):
+        raise HTTPException(
+            status_code=404, detail="Document keyword association not found"
+        )
+
+    return {"message": "Document keyword association deleted"}
