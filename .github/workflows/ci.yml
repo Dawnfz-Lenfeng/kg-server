@@ -78,7 +78,6 @@ jobs:
         cd backend
         pip install pytest pytest-asyncio pytest-cov
         pip install -e ".[all]"
-        cnocr init-models
 
     - name: Run tests
       run: |
