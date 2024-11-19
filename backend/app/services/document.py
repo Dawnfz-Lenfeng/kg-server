@@ -4,6 +4,7 @@ from fastapi import HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..config import settings
 from ..models.document import Document
 from ..preprocessing import extract_text, normalize_text
 from ..schemas.document import DocumentCreate, DocumentUpdate
@@ -18,7 +19,7 @@ async def create_document(
     force_ocr: bool = False,
     char_threshold: int = 2,
     sentence_threshold: float = 0.9,
-    upload_dir: str = "uploads",
+    upload_dir: str = settings.UPLOAD_DIR,
 ) -> Document:
     """创建新文档"""
     import os

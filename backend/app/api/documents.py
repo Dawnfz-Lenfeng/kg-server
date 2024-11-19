@@ -34,11 +34,13 @@ async def upload_document(
     db: Session = Depends(get_db),
 ):
     """上传新文档"""
+    import os
+
     if file.filename is None:
         raise HTTPException(status_code=400, detail="File name is required")
 
-    doc_title = title if title is not None else file.filename
-    file_type = file.filename.split(".")[-1].lower()
+    file_name, file_type = os.path.splitext(file.filename)
+    doc_title = title or file_name
 
     document = DocumentCreate(
         title=doc_title, file_type=file_type, subject_id=subject_id
