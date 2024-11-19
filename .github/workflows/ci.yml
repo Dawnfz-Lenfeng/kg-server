@@ -22,6 +22,9 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
+        cache-dependency-path: |
+          backend/pyproject.toml
+          backend/setup.cfg
 
     - name: Install lint tools
       run: |
@@ -60,20 +63,21 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
+        cache-dependency-path: |
+          backend/pyproject.toml
+          backend/setup.cfg
+          backend/requirements*.txt
 
     - name: Install OCR dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y poppler-utils
-        # Tesseract OCR engine and Chinese support
-        sudo apt-get install -y tesseract-ocr
-        sudo apt-get install -y tesseract-ocr-chi-sim
+        sudo apt-get install -y poppler-utils tesseract-ocr tesseract-ocr-chi-sim
 
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
         cd backend
-        pip install -e ".[dev]"
+        pip install -e ".[all]"
 
     - name: Run tests
       run: |
