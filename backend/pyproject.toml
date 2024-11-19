@@ -16,7 +16,7 @@ skip = ["alembic/versions/*.py"]
 
 [tool.mypy]
 python_version = "3.10"
-exclude = "tests/"
+exclude = ["tests/", "alembic/"]
 
 [[tool.mypy.overrides]]
 module = ["cnocr.*", "pytesseract.*", "paddleocr.*"]
