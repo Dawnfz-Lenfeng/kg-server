@@ -48,6 +48,7 @@ async def create_document(
     try:
         db_document.origin_text = extract_text(
             file_path,
+            file_type=document.file_type,
             ocr_engine=ocr_engine,
             num_workers=num_workers,
             force_ocr=force_ocr,
@@ -130,6 +131,7 @@ async def reprocess_document_text(
 
     document.origin_text = extract_text(
         document.file_path,
+        file_type=document.file_type,
         ocr_engine=ocr_engine,
         num_workers=num_workers,
         force_ocr=force_ocr,

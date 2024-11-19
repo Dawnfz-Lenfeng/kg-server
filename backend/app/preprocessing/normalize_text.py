@@ -145,10 +145,3 @@ def deduplicate_sentences(paragraph: str, similarity_threshold: float = 0.9) -> 
                     used.add(sent2)
 
     return RE_HEAD.sub("", "".join(unique_sentences))
-
-
-if __name__ == "__main__":
-    sample_text = """
-1234324545,+-*/()[]{},,，,\n .....asdg ，考虑比较重重复而且符合长度的句子。。，，。，。考虑比较重重复复而且符合长度的句子，，。.，，,.，。。，rwe ◆∂δrew   423njf
-"""
-    print(normalize_text(sample_text))

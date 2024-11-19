@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DocumentBase(BaseModel):
@@ -32,12 +32,10 @@ class DocumentListResponse(DocumentBase):
     """文档列表响应模型"""
 
     id: int = Field(..., description="文档ID")
-    file_path: str = Field(..., description="文件路径")
     created_at: datetime = Field(..., description="创建时间")
     updated_at: datetime = Field(..., description="更新时间")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DocumentResponse(DocumentListResponse):
