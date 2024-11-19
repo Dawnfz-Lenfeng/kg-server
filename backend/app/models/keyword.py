@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy import Column, ForeignKey, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
-from .document import Document
+
+if TYPE_CHECKING:
+    from .document import Document
 
 # 定义关联表
 document_keywords = Table(

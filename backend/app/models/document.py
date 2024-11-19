@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
-from .keyword import Keyword, document_keywords
-from .subject import Subject
+from .keyword import document_keywords
+
+if TYPE_CHECKING:
+    from .keyword import Keyword
+    from .subject import Subject
 
 
 class Document(Base):
