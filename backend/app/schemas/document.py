@@ -8,7 +8,9 @@ class DocumentBase(BaseModel):
 
     title: str = Field(..., description="文档标题")
     file_type: str = Field(..., description="文件类型 (pdf, txt)")
-    subject_id: int | None = Field(None, description="学科ID (1=金融, 2=经济, 3=统计, 4=数据科学)")
+    subject_id: int | None = Field(
+        None, description="学科ID (1=金融, 2=经济, 3=统计, 4=数据科学)"
+    )
 
 
 class DocumentCreate(DocumentBase):
@@ -21,7 +23,9 @@ class DocumentUpdate(BaseModel):
     """更新文档请求模型"""
 
     title: str | None = Field(None, description="文档标题")
-    subject_id: int | None = Field(None, description="学科ID (1=金融, 2=经济, 3=统计, 4=数据科学)")
+    subject_id: int | None = Field(
+        None, description="学科ID (1=金融, 2=经济, 3=统计, 4=数据科学)"
+    )
 
 
 class DocumentListResponse(DocumentBase):
