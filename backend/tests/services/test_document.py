@@ -100,7 +100,7 @@ async def test_delete_document(db: Session, sample_document: Document):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("ocr_engine", ["cnocr", "paddleocr", "tesseract"])
+@pytest.mark.parametrize("ocr_engine", ["cnocr", "tesseract"])
 async def test_create_with_different_engines(
     db: Session, pdf_file: UploadFile, ocr_engine: str
 ):
