@@ -1,7 +1,10 @@
-from sqlalchemy import Column, ForeignKey, Integer, String, Table
-from sqlalchemy.orm import relationship
+from __future__ import annotations
+
+from sqlalchemy import Column, ForeignKey, Table
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
+from .document import Document
 
 # 定义关联表
 document_keywords = Table(
@@ -15,11 +18,10 @@ document_keywords = Table(
 class Keyword(Base):
     __tablename__ = "keywords"
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False, unique=True)
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(nullable=False, unique=True)
 
-    documents = relationship(
-        "Document",
+    documents: Mapped[list[Document]] = relationship(
         secondary=document_keywords,
         back_populates="keywords",
     )

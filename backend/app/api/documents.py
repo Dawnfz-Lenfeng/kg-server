@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
@@ -26,8 +24,8 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 @router.post("/", response_model=DocumentResponse)
 async def upload_document(
     file: UploadFile = File(...),
-    title: Optional[str] = None,
-    subject_id: Optional[int] = None,
+    title: str | None = Form(None),
+    subject_id: int | None = None,
     num_workers: int = 4,
     ocr_engine: str = "cnocr",
     force_ocr: bool = False,
@@ -36,25 +34,26 @@ async def upload_document(
     db: Session = Depends(get_db),
 ):
     """上传新文档"""
-    # 使用文件名作为标题（如果未提供）
-    if not title:
-        title = file.filename
+    if file.filename is None:
+        raise HTTPException(status_code=400, detail="File name is required")
 
-    # 获取文件类型
+    doc_title = title if title is not None else file.filename
     file_type = file.filename.split(".")[-1].lower()
 
     # 创建文档模型
-    document = DocumentCreate(title=title, file_type=file_type, subject_id=subject_id)
+    document = DocumentCreate(
+        title=doc_title, file_type=file_type, subject_id=subject_id
+    )
 
     return await create_document(
         db,
         document,
         file,
-        num_workers,
-        ocr_engine,
-        force_ocr,
-        char_threshold,
-        sentence_threshold,
+        num_workers=num_workers,
+        ocr_engine=ocr_engine,
+        force_ocr=force_ocr,
+        char_threshold=char_threshold,
+        sentence_threshold=sentence_threshold,
     )
 
 
@@ -119,11 +118,11 @@ async def read_document(
     raise HTTPException(status_code=404, detail="Document not found")
 
 
-@router.get("/", response_model=List[DocumentListResponse])
+@router.get("/", response_model=list[DocumentListResponse])
 async def read_documents(
     skip: int = 0,
     limit: int = 10,
-    subject_id: Optional[int] = None,
+    subject_id: int | None = None,
     db: Session = Depends(get_db),
 ):
     """获取文档列表"""

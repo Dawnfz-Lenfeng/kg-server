@@ -4,9 +4,9 @@ from logging.config import fileConfig
 from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
 
+import app.models
 from alembic import context
 from app.database import Base
-from app.models import Document, Keyword, Subject
 
 load_dotenv()
 
@@ -47,11 +47,14 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
     # 修改配置以使用环境变量中的 URL
-    configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = get_url()
+    config = config.get_section(config.config_ini_section)
+    if config is None:
+        raise ValueError("Config section is missing.")
+
+    config["sqlalchemy.url"] = get_url()
 
     connectable = engine_from_config(
-        configuration,
+        config,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

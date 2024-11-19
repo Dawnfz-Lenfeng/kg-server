@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -9,9 +8,7 @@ class DocumentBase(BaseModel):
 
     title: str = Field(..., description="文档标题")
     file_type: str = Field(..., description="文件类型 (pdf, txt)")
-    subject_id: Optional[int] = Field(
-        None, description="学科ID (1=金融, 2=经济, 3=统计, 4=数据科学)"
-    )
+    subject_id: int | None = Field(None, description="学科ID (1=金融, 2=经济, 3=统计, 4=数据科学)")
 
 
 class DocumentCreate(DocumentBase):
@@ -23,10 +20,8 @@ class DocumentCreate(DocumentBase):
 class DocumentUpdate(BaseModel):
     """更新文档请求模型"""
 
-    title: Optional[str] = Field(None, description="文档标题")
-    subject_id: Optional[int] = Field(
-        None, description="学科ID (1=金融, 2=经济, 3=统计, 4=数据科学)"
-    )
+    title: str | None = Field(None, description="文档标题")
+    subject_id: int | None = Field(None, description="学科ID (1=金融, 2=经济, 3=统计, 4=数据科学)")
 
 
 class DocumentListResponse(DocumentBase):
@@ -44,5 +39,5 @@ class DocumentListResponse(DocumentBase):
 class DocumentResponse(DocumentListResponse):
     """完整文档响应模型"""
 
-    processed_text: Optional[str] = Field(None, description="处理后的文本内容")
-    origin_text: Optional[str] = Field(None, description="原始文本内容")
+    processed_text: str | None = Field(None, description="处理后的文本内容")
+    origin_text: str | None = Field(None, description="原始文本内容")

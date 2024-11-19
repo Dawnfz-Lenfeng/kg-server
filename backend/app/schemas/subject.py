@@ -1,6 +1,3 @@
-from enum import IntEnum
-from typing import Optional
-
 from pydantic import BaseModel
 
 
@@ -8,7 +5,7 @@ class SubjectBase(BaseModel):
     """主题基础模型"""
 
     name: str
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class SubjectCreate(SubjectBase):

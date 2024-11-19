@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -29,8 +27,8 @@ async def create_keyword_api(
 
 @router.get("/search", response_model=KeywordResponse)
 async def search_keyword(
-    keyword_id: Optional[int] = None,
-    keyword_name: Optional[str] = None,
+    keyword_id: int | None = None,
+    keyword_name: str | None = None,
     db: Session = Depends(get_db),
 ):
     """通过ID或名称搜索关键词"""
@@ -44,11 +42,11 @@ async def search_keyword(
     raise HTTPException(status_code=404, detail="Keyword not found")
 
 
-@router.get("/", response_model=List[KeywordResponse])
+@router.get("/", response_model=list[KeywordResponse])
 async def read_keywords(
     skip: int = 0,
     limit: int = 10,
-    search_name: Optional[str] = Query(None, description="搜索关键词名称"),
+    search_name: str | None = Query(None, description="搜索关键词名称"),
     db: Session = Depends(get_db),
 ):
     """获取关键词列表，支持搜索"""
@@ -84,7 +82,7 @@ async def create_document_keyword_api(
     raise HTTPException(status_code=404, detail="Document or keyword not found")
 
 
-@router.get("/document/{document_id}", response_model=List[DocumentKeywordResponse])
+@router.get("/document/{document_id}", response_model=list[DocumentKeywordResponse])
 async def read_document_keywords_api(
     document_id: int,
     db: Session = Depends(get_db),

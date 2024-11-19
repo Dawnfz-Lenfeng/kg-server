@@ -23,7 +23,9 @@ RE_MULTI_PUNCT = re.compile(r"[，。]+")
 
 
 def normalize_text(
-    text: str, char_threshold: int = 2, sentence_threshold: float = 0.9
+    text: str | None,
+    char_threshold: int = 2,
+    sentence_threshold: float = 0.9,
 ) -> str:
     """清理文本：移除非中文字符，统一标点符号，去除重复内容
 

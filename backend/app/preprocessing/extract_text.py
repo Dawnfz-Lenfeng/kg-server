@@ -2,22 +2,22 @@ import logging
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Callable, List, Optional
+from typing import Callable
 
 import pdfplumber
-from cnocr import CnOcr
+from cnocr import CnOcr  # type: ignore
 from pdf2image import convert_from_path, pdfinfo_from_path
 from PIL.Image import Image
 from tqdm import tqdm
 
 try:
-    import pytesseract
+    import pytesseract  # type: ignore
 except ImportError:
     pytesseract = None
 
 try:
     import numpy as np
-    from paddleocr import PaddleOCR
+    from paddleocr import PaddleOCR  # type: ignore
 except ImportError:
     PaddleOCR = None
 
@@ -30,7 +30,7 @@ THREAD_LOCK = threading.Lock()
 def extract_text(
     path: str,
     first_page: int = 1,
-    last_page: Optional[int] = None,
+    last_page: int | None = None,
     ocr_engine: str = "cnocr",
     num_workers: int = 4,
     force_ocr: bool = False,
@@ -48,11 +48,6 @@ def extract_text(
     :param force_ocr: 是否强制使用 OCR 引擎, 默认为 False
     """
     ocr_engine = ocr_engine.lower()
-    OCR_ENGINES = {
-        "cnocr": extract_with_cnocr,
-        "paddleocr": (extract_with_paddle, PaddleOCR, "paddleocr"),
-        "tesseract": (extract_with_tesseract, pytesseract, "pytesseract"),
-    }
 
     if ocr_engine not in OCR_ENGINES:
         raise ValueError(f"Unsupported OCR engine: {ocr_engine}")
@@ -109,10 +104,10 @@ def extract_pdf_text(path: str, pages: list[int]) -> str:
 
 def extract_with_ocr(
     path: str,
-    pages: List[int],
+    pages: list[int],
     workers: int,
     engine: str,
-    extract_page: Callable[[str, int], Optional[str]],
+    extract_page: Callable[[str, int], str | None],
 ) -> str:
     """使用OCR提取文本的通用函数，支持多线程处理"""
     logger.info(f"Starting {engine} extraction with {workers} workers...")
@@ -132,11 +127,11 @@ def extract_with_ocr(
     return "\n".join(text for _, text in sorted(results))
 
 
-def extract_with_cnocr(path: str, pages: List[int], workers: int) -> str:
+def extract_with_cnocr(path: str, pages: list[int], workers: int) -> str:
     """使用CnOCR提取文本"""
     ocr = CnOcr()
 
-    def process_page(path: str, num: int) -> Optional[str]:
+    def process_page(path: str, num: int) -> str | None:
         if img := convert_page_to_image(path, num):
             try:
                 res = ocr.ocr(img)
@@ -148,10 +143,10 @@ def extract_with_cnocr(path: str, pages: List[int], workers: int) -> str:
     return extract_with_ocr(path, pages, workers, "cnocr", process_page)
 
 
-def extract_with_tesseract(path: str, pages: List[int], workers: int) -> str:
+def extract_with_tesseract(path: str, pages: list[int], workers: int) -> str:
     """使用Tesseract提取文本"""
 
-    def extract_page(path: str, num: int) -> Optional[str]:
+    def extract_page(path: str, num: int) -> str | None:
         img = convert_page_to_image(path, num)
         if img is None:
             return None
@@ -166,7 +161,7 @@ def extract_with_tesseract(path: str, pages: List[int], workers: int) -> str:
     return extract_with_ocr(path, pages, workers, "tesseract", extract_page)
 
 
-def extract_with_paddle(path: str, pages: List[int], workers: int) -> str:
+def extract_with_paddle(path: str, pages: list[int], workers: int) -> str:
     """使用PaddleOCR提取文本"""
     ocr = PaddleOCR(
         use_angle_cls=True,
@@ -175,7 +170,7 @@ def extract_with_paddle(path: str, pages: List[int], workers: int) -> str:
         use_mp=True,
     )
 
-    def extract_page(path: str, num: int) -> Optional[str]:
+    def extract_page(path: str, num: int) -> str | None:
         img = convert_page_to_image(path, num, "RGB")
         if img is None:
             return None
@@ -191,9 +186,7 @@ def extract_with_paddle(path: str, pages: List[int], workers: int) -> str:
     return extract_with_ocr(path, pages, workers, "paddleocr", extract_page)
 
 
-def convert_page_to_image(
-    path: str, num: int, convert_mode: str = "L"
-) -> Optional[Image]:
+def convert_page_to_image(path: str, num: int, convert_mode: str = "L") -> Image | None:
     """将PDF页面转换为图像"""
     try:
         images = convert_from_path(path, first_page=num, last_page=num)
@@ -203,7 +196,7 @@ def convert_page_to_image(
         return None
 
 
-def get_pdf_pages(path: str, start: int, end: Optional[int]) -> List[int]:
+def get_pdf_pages(path: str, start: int, end: int | None) -> list[int]:
     """获取PDF页面范围"""
     pdf_info = pdfinfo_from_path(path)
     total_pages = pdf_info["Pages"]
@@ -213,3 +206,12 @@ def get_pdf_pages(path: str, start: int, end: Optional[int]) -> List[int]:
         raise ValueError("Page range is out of bounds")
 
     return list(range(start, end + 1))
+
+
+OCRConfig = Callable[..., str] | tuple[Callable[..., str], object, str]
+
+OCR_ENGINES: dict[str, OCRConfig] = {
+    "cnocr": extract_with_cnocr,
+    "paddleocr": (extract_with_paddle, PaddleOCR, "paddleocr"),
+    "tesseract": (extract_with_tesseract, pytesseract, "pytesseract"),
+}

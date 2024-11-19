@@ -1,6 +1,9 @@
-from typing import List, Optional
+from __future__ import annotations
 
-from fastapi import UploadFile
+from typing import Sequence
+
+from fastapi import HTTPException, UploadFile
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models.document import Document
@@ -21,11 +24,10 @@ async def create_document(
 ) -> Document:
     """创建新文档"""
     import os
-
-    from fastapi import HTTPException
+    from typing import cast
 
     # 保存文件
-    file_path = os.path.join(upload_dir, file.filename)
+    file_path = os.path.join(upload_dir, cast(str, file.filename))
     os.makedirs(upload_dir, exist_ok=True)
 
     try:
@@ -45,7 +47,6 @@ async def create_document(
 
     # 处理文档文本
     try:
-        # 使用传入的参数进行文本提取和清洗
         db_document.origin_text = extract_text(
             file_path,
             ocr_engine=ocr_engine,
@@ -67,27 +68,34 @@ async def create_document(
     return db_document
 
 
-async def get_document(db: Session, document_id: int) -> Optional[Document]:
+async def get_document(db: Session, document_id: int) -> Document | None:
     """获取单个文档"""
-    return db.query(Document).filter(Document.id == document_id).first()
+    stmt = select(Document).where(Document.id == document_id)
+    result = db.execute(stmt)
+    return result.scalar_one_or_none()
 
 
 async def get_documents(
-    db: Session, skip: int = 0, limit: int = 10, subject_id: Optional[int] = None
-) -> List[Document]:
+    db: Session,
+    skip: int = 0,
+    limit: int = 10,
+    subject_id: int | None = None,
+) -> Sequence[Document]:
     """获取文档列表"""
-    query = db.query(Document)
-    if subject_id:
-        query = query.filter(Document.subject_id == subject_id)
-    return query.offset(skip).limit(limit).all()
+    stmt = select(Document)
+    if subject_id is not None:
+        stmt = stmt.where(Document.subject_id == subject_id)
+    stmt = stmt.offset(skip).limit(limit)
+    result = db.execute(stmt)
+    return result.scalars().all()
 
 
 async def update_document(
     db: Session, document_id: int, document_update: DocumentUpdate
-) -> Optional[Document]:
+) -> Document | None:
     """更新文档"""
     db_document = await get_document(db, document_id)
-    if db_document:
+    if db_document is not None:
         update_data = document_update.model_dump(exclude_unset=True)
         for key, value in update_data.items():
             setattr(db_document, key, value)
@@ -98,8 +106,9 @@ async def update_document(
 
 async def delete_document(db: Session, document_id: int) -> bool:
     """删除文档"""
-    db_document = await get_document(db, document_id)
-    if db_document:
+    stmt = select(Document).where(Document.id == document_id)
+    db_document = db.execute(stmt).scalar_one_or_none()
+    if db_document is not None:
         db.delete(db_document)
         db.commit()
         return True
@@ -114,10 +123,10 @@ async def reprocess_document_text(
     force_ocr: bool = False,
     char_threshold: int = 2,
     sentence_threshold: float = 0.9,
-) -> Optional[Document]:
+) -> Document | None:
     """重新处理文档文本"""
     document = await get_document(db, document_id)
-    if not document:
+    if document is None:
         return None
 
     document.origin_text = extract_text(
@@ -141,10 +150,10 @@ async def renormalize_document_text(
     document_id: int,
     char_threshold: int = 2,
     sentence_threshold: float = 0.9,
-) -> Optional[Document]:
+) -> Document | None:
     """重新清洗文档文本"""
     document = await get_document(db, document_id)
-    if not document:
+    if document is None:
         return None
 
     document.processed_text = normalize_text(
