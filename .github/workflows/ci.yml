@@ -77,7 +77,7 @@ jobs:
         python -m pip install --upgrade pip
         cd backend
         pip install pytest pytest-asyncio pytest-cov
-        pip install -e ".[all]"
+        pip install -e .
 
     - name: Run tests
       run: |
