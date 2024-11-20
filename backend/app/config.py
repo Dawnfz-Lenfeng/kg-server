@@ -15,10 +15,12 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "uploads"
     MAX_FILE_SIZE: int = 20 * 1024 * 1024  # 20MB
 
+    # 开发模式配置
+    DEV_MODE: bool = False
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        case_sensitive=True,
     )
 
 

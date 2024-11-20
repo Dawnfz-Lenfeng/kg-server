@@ -91,7 +91,7 @@ async def get_document_keywords(db: Session, document_id: int) -> Sequence[dict]
     return [
         {
             "document_id": document_id,
-            "keyword": keyword.name,
+            "keyword": keyword,
         }
         for keyword in document.keywords
     ]

@@ -1,3 +1,6 @@
+from enum import Enum
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
@@ -21,29 +24,33 @@ from ..services.document import (
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
+class OCREngine(str, Enum):
+    CNOCR = "cnocr"
+    TESSERACT = "tesseract"
+    # PADDLEOCR = "paddleocr"
+
+
 @router.post("/", response_model=DocumentResponse)
 async def upload_document(
     file: UploadFile = File(...),
     title: str | None = Form(None),
-    subject_id: int | None = None,
+    subject_id: int = Form(...),
     num_workers: int = 4,
-    ocr_engine: str = "cnocr",
+    ocr_engine: OCREngine = OCREngine.CNOCR,
     force_ocr: bool = False,
     char_threshold: int = 2,
     sentence_threshold: float = 0.9,
     db: Session = Depends(get_db),
 ):
     """上传新文档"""
-    import os
-
-    if file.filename is None:
+    if not file.filename:
         raise HTTPException(status_code=400, detail="File name is required")
 
-    file_name, file_type = os.path.splitext(file.filename)
-    doc_title = title or file_name
-
+    path = Path(file.filename)
     document = DocumentCreate(
-        title=doc_title, file_type=file_type, subject_id=subject_id
+        title=title or path.stem,
+        file_type=path.suffix[1:],
+        subject_id=subject_id,
     )
 
     return await create_document(
@@ -51,7 +58,7 @@ async def upload_document(
         document,
         file,
         num_workers=num_workers,
-        ocr_engine=ocr_engine,
+        ocr_engine=ocr_engine.value,
         force_ocr=force_ocr,
         char_threshold=char_threshold,
         sentence_threshold=sentence_threshold,
@@ -62,7 +69,7 @@ async def upload_document(
 async def reprocess_document_api(
     document_id: int,
     num_workers: int = 4,
-    ocr_engine: str = "cnocr",
+    ocr_engine: OCREngine = OCREngine.CNOCR,
     force_ocr: bool = False,
     char_threshold: int = 2,
     sentence_threshold: float = 0.9,
@@ -73,7 +80,7 @@ async def reprocess_document_api(
         db,
         document_id,
         num_workers,
-        ocr_engine,
+        ocr_engine.value,
         force_ocr,
         char_threshold,
         sentence_threshold,
