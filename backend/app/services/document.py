@@ -34,7 +34,9 @@ async def create_document(
         with open(file_path, "wb") as f:
             f.write(content)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"File upload failed: {str(e)}")
+        raise HTTPException(
+            status_code=400, detail=f"File upload failed: {str(e)}"
+        ) from e
 
     # 创建文档记录
     db_document = Document(
@@ -59,7 +61,9 @@ async def create_document(
             sentence_threshold=sentence_threshold,
         )
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Text extraction failed: {str(e)}")
+        raise HTTPException(
+            status_code=400, detail=f"Text extraction failed: {str(e)}"
+        ) from e
 
     db.add(db_document)
     db.commit()

@@ -200,7 +200,7 @@ def get_pdf_pages(file_path: str, start: int, end: int | None) -> list[int]:
     return list(range(start, end + 1))
 
 
-OCR_ENGINES: dict[str, Callable[..., str]] = {
+OCR_ENGINES = {
     "cnocr": extract_with_cnocr,
     # "paddleocr": extract_with_paddle,
     "tesseract": extract_with_tesseract,

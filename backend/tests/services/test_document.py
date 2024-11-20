@@ -105,17 +105,14 @@ async def test_create_with_different_engines(
     db: Session, pdf_file: UploadFile, ocr_engine: str
 ):
     """测试不同OCR引擎的文档创建"""
-    try:
-        doc = await create_document(
-            db=db,
-            document=DocumentCreate(
-                title=f"{ocr_engine} test", file_type="pdf", subject_id=1
-            ),
-            file=pdf_file,
-            ocr_engine=ocr_engine,
-            force_ocr=True,
-        )
-        assert doc.origin_text
-        assert doc.processed_text
-    except ImportError:
-        pytest.skip(f"{ocr_engine} not installed")
+    doc = await create_document(
+        db=db,
+        document=DocumentCreate(
+            title=f"{ocr_engine} test", file_type="pdf", subject_id=1
+        ),
+        file=pdf_file,
+        ocr_engine=ocr_engine,
+        force_ocr=True,
+    )
+    assert doc.origin_text
+    assert doc.processed_text
