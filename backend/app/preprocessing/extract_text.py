@@ -2,24 +2,19 @@ import logging
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 import pdfplumber
-from cnocr import CnOcr  # type: ignore
+import pytesseract
+from cnocr import CnOcr
 from pdf2image import convert_from_path, pdfinfo_from_path
 from PIL.Image import Image
 from tqdm import tqdm
 
-try:
-    import pytesseract  # type: ignore
-except ImportError:
-    pytesseract = None
-
-try:
+if TYPE_CHECKING:
     import numpy as np
-    from paddleocr import PaddleOCR  # type: ignore
-except ImportError:
-    PaddleOCR = None
+    from paddleocr import PaddleOCR
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -67,14 +62,10 @@ def extract_text(
             return text
         logger.info("PDFplumber extraction failed, trying OCR...")
 
-    extract_func, module = OCR_ENGINES[ocr_engine]
-
-    if module is None:
-        raise ImportError(f"{ocr_engine} not installed")
     if ocr_engine == "tesseract":
         os.environ["OMP_THREAD_LIMIT"] = "1"
 
-    text = extract_func(file_path, pages, num_workers)
+    text = OCR_ENGINES[ocr_engine](file_path, pages, num_workers)
 
     if not text:
         logger.warning("No text content extracted")
@@ -209,8 +200,8 @@ def get_pdf_pages(file_path: str, start: int, end: int | None) -> list[int]:
     return list(range(start, end + 1))
 
 
-OCR_ENGINES: dict[str, tuple[Callable[..., str], object]] = {
-    "cnocr": (extract_with_cnocr, CnOcr),
-    "paddleocr": (extract_with_paddle, PaddleOCR),
-    "tesseract": (extract_with_tesseract, pytesseract),
+OCR_ENGINES: dict[str, Callable[..., str]] = {
+    "cnocr": extract_with_cnocr,
+    # "paddleocr": extract_with_paddle,
+    "tesseract": extract_with_tesseract,
 }
