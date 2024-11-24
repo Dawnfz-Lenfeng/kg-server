@@ -6,7 +6,6 @@
 conda create -n ckgcus python=3.10
 conda activate ckgcus
 ```
-
 2. 安装依赖：
 ```bash
 cd backend
@@ -23,7 +22,7 @@ pip install -e .[dev] -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 ```bash
 conda env list
 ```
-2. 安装库Polygon3时可能出现问题，这时可以试着通过conda 进行安装来解决此问题  
+2. 安装库Polygon3时可能出现问题，这时可以试着通过conda安装来解决此问题  
 ```
 conda install polygon3
 ```
@@ -65,14 +64,15 @@ git config --global user.email"you@example.com"
 #或者
 git config --global user.name "Your Name"
 ```
-提交代码
+提交代码，这里建议创建一个分支来避免跟主支冲突
 ```bash
 git pull
+git checkout -b new
 git add .
 git commit -m .
-git push origin master
+git push origin new
 ```
-在终端操作结束后，返回GitHub网页，在Contribute按钮下提交你的修改
+在终端操作结束后，返回GitHub，切换到new分支，在Contribute按钮下提交你的修改
 
 ## 代码规范
 [编码规范、提交规范...]
