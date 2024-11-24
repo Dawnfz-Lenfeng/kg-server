@@ -11,17 +11,19 @@ conda activate ckgcus
 ```bash
 cd backend
 pip install -e ".[dev]"  # 安装开发依赖
-```  
+```
+也可以使用镜像源
+```
+pip install -e .[dev] -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple 
+```
+
 在安装过程中可能会遇到以下错误：  
+
 1. 没有切换到虚拟环境：可以通过下面的命令检查当前所在环境
 ```bash
 conda env list
 ```
-2. 安装库Polygon3时可能出现问题，这时可以试着通过使用清华镜像源安装来解决此问题  
-```
-pip install -e .[dev] -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple 
-```
-也可以换用conda安装
+2. 安装库Polygon3时可能出现问题，这时可以试着通过conda 进行安装来解决此问题  
 ```
 conda install polygon3
 ```
