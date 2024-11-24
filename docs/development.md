@@ -2,120 +2,88 @@
 
 ## 开发环境设置
 
-1. **创建并激活虚拟环境**：
+1. 创建并激活虚拟环境
 ```bash
 conda create -n ckgcus python=3.10
 conda activate ckgcus
 ```
 
-2. **安装依赖**：
-
+2. 安装依赖
 ```bash
+# 进入后端目录
 cd backend
-pip install -e ".[dev]"  # 安装开发依赖
-```
 
-也可以使用镜像源加速安装：
+# 安装开发依赖
+pip install -e ".[dev]"
 
-```bash
+# 或使用镜像源加速安装
 pip install -e .[dev] -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 ```
 
-**安装过程中可能会遇到以下错误：**
+## 常见安装问题
 
-1. **未切换到虚拟环境**：可以通过以下命令检查当前环境是否正确激活：
+1. 未切换到虚拟环境
+```bash
+# 检查当前环境是否正确激活
+conda env list
+```
 
+2. Polygon3 安装失败
+```bash
+# 尝试使用 conda 安装
+conda install polygon3
+```
+
+## Git 工作流
+
+1. Fork 仓库
+    - 点击 GitHub 仓库右上角的 Fork 按钮
+    - 这将复制仓库的文件、提交历史和 Issues 到你的账户
+
+2. 配置 SSH
+    - 生成 SSH 密钥
     ```bash
-    conda env list
-    ```
+    # 生成 SSH 密钥
+    ssh-keygen -t rsa -C "your.email@example.com"
 
-2. **安装库 `Polygon3` 时出现问题**：可以尝试通过 `conda` 安装该库：
-
-    ```bash
-    conda install polygon3
-    ```
-
-## 代码贡献流程（Git 操作）
-### 第一次进行本项目代码开发
-
-1. **Fork 仓库**：
-    - 点击 GitHub 仓库右上角的 Fork 按钮，将该仓库的文件、提交历史、Issues 等复制到自己的 GitHub 仓库中。
-
-2. **配置 SSH 协议**：
-
-    ```bash
-    # 将 "xxx@xxx.com" 替换为你的 GitHub 邮箱地址
-    ssh-keygen -t rsa -C "xxx@xxx.com"
-    ```
-
-    ```bash
-    # 进入 SSH 目录
+    # 查看公钥
     cd ~/.ssh
-    ```
-
-    ```bash
-    # 查看并复制 SSH 公钥
     cat id_rsa.pub
+
+    # 创建或编辑配置文件
+    nano ~/.ssh/config
+
+    # 添加以下内容
+    Host github.com
+        HostName ssh.github.com
+        User git
+        Port 443
     ```
+    - 进入 `GitHub Settings` > `SSH and GPG keys`
+    - 添加复制的 SSH 公钥
 
-    - 登录 GitHub，进入 **Settings > SSH and GPG keys**，添加复制的 SSH 公钥。
-
-    - 配置 SSH 配置文件（如果不存在，则创建一个）：
-
-        ```bash
-        nano ~/.ssh/config
-        ```
-
-        添加以下内容：
-
-        ```
-        Host github.com
-          HostName ssh.github.com
-          User git
-          Port 443
-        ```
-
-### 每次进行代码贡献流程
-
-1. **同步 Fork 仓库**：
-    - 在自己的 GitHub Fork 上点击 **Sync fork** 按钮，确保本地仓库与上游仓库保持同步。
-
-2. **切换 IDE 虚拟环境**：
-    - 在 PyCharm 或 VSCode 中，将项目的 Python 解释器切换到之前创建的虚拟环境 `ckgcus`。可以通过终端提示符验证是否切换成功。
-
-3. **克隆仓库**（推荐使用 SSH，参考上一步的 SSH 配置）：
-
+3. 日常开发流程
+    - 克隆仓库与修改
     ```bash
-    git clone your_ssh_url
-    ```
+    # 同步 Fork
+    # 在 GitHub Fork 页面点击 "Sync fork"
 
-    > **注意**：`your_ssh_url` 部分请在 GitHub 仓库页面点击 **Code** 按钮，选择 SSH 后复制的链接。
+    # 克隆仓库
+    git clone <your_ssh_url>
 
-4. **进行代码修改**。
-
-5. **提交代码与发起 Pull Request**：
-
-    ```bash
+    # Git 配置
     git config --global user.email "you@example.com"
-    # 或者
     git config --global user.name "Your Name"
-    ```
 
-    建议创建一个新分支以避免与主分支冲突：
-
-    ```bash
+    # 创建新分支并提交代码
     git pull
     git checkout -b new-feature
     git add .
     git commit -m "描述你的修改内容"
     git push origin new-feature
     ```
-
-    - 在终端操作完成后，返回 GitHub。
-    - 切换到新创建的 `new-feature` 分支。
-    - 点击 **Contribute** 按钮，选择 **Open pull request**，提交你的修改。
-
-
+    - 返回 GitHub，切换到 `new-feature` 分支
+    - 点击 `Contribute` > `Open pull request`
 
 ## 代码规范
 [编码规范、提交规范...]
