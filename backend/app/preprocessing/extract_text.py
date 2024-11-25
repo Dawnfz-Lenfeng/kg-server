@@ -188,16 +188,13 @@ def convert_page_to_image(
         return None
 
 
-def get_pdf_pages(file_path: str, start: int, end: int | None) -> list[int]:
+def get_pdf_pages(file_path: str, first_page: int, last_page: int | None) -> list[int]:
     """获取PDF页面范围"""
     pdf_info = pdfinfo_from_path(file_path)
-    total_pages = pdf_info["Pages"]
-    end = end or total_pages
+    total_pages: int = pdf_info["Pages"]
+    last_page = min(last_page, total_pages) if last_page is not None else total_pages
 
-    if start < 1 or end > total_pages:
-        raise ValueError("Page range is out of bounds")
-
-    return list(range(start, end + 1))
+    return list(range(first_page, last_page + 1))
 
 
 OCR_ENGINES = {

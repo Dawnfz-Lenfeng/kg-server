@@ -1,7 +1,6 @@
-from enum import Enum
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -11,144 +10,104 @@ from ..schemas.document import (
     DocumentResponse,
     DocumentUpdate,
 )
+from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
 from ..services.document import (
-    create_document,
-    delete_document,
-    get_document,
-    get_documents,
-    renormalize_document_text,
-    reprocess_document_text,
-    update_document,
+    create_doc_service,
+    delete_doc_service,
+    extract_doc_text_service,
+    normalize_doc_text_service,
+    read_doc_service,
+    read_docs_service,
+    update_doc_service,
 )
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-class OCREngine(str, Enum):
-    CNOCR = "cnocr"
-    TESSERACT = "tesseract"
-    # PADDLEOCR = "paddleocr"
-
-
 @router.post("/", response_model=DocumentResponse)
-async def upload_document(
+async def create_doc(
     file: UploadFile = File(...),
-    title: str | None = Form(None),
+    title: str | None = Form(
+        None, description="Optional custom title, if not provided, use file name"
+    ),
     subject_id: int = Form(...),
-    num_workers: int = 4,
-    ocr_engine: OCREngine = OCREngine.CNOCR,
-    force_ocr: bool = False,
-    char_threshold: int = 2,
-    sentence_threshold: float = 0.9,
     db: Session = Depends(get_db),
 ):
-    """上传新文档"""
+    """上传文档"""
     if not file.filename:
         raise HTTPException(status_code=400, detail="File name is required")
 
     path = Path(file.filename)
-    document = DocumentCreate(
+    doc = DocumentCreate(
         title=title or path.stem,
         file_type=path.suffix[1:],
         subject_id=subject_id,
     )
-
-    return await create_document(
-        db,
-        document,
-        file,
-        num_workers=num_workers,
-        ocr_engine=ocr_engine.value,
-        force_ocr=force_ocr,
-        char_threshold=char_threshold,
-        sentence_threshold=sentence_threshold,
-    )
+    return await create_doc_service(doc, file, db)
 
 
-@router.post("/{document_id}/reprocess", response_model=DocumentResponse)
-async def reprocess_document_api(
-    document_id: int,
-    num_workers: int = 4,
-    ocr_engine: OCREngine = OCREngine.CNOCR,
-    force_ocr: bool = False,
-    char_threshold: int = 2,
-    sentence_threshold: float = 0.9,
+@router.post("/{doc_id}/extract", response_model=DocumentResponse)
+async def extract_doc_text(
+    doc_id: int,
+    extract_config: ExtractConfig = Body(default=ExtractConfig()),
     db: Session = Depends(get_db),
 ):
-    """重新提取文档文本"""
-    document = await reprocess_document_text(
-        db,
-        document_id,
-        num_workers,
-        ocr_engine.value,
-        force_ocr,
-        char_threshold,
-        sentence_threshold,
-    )
-    if document is None:
-        raise HTTPException(status_code=404, detail="Document not found")
-    return document
+    """提取文档文本"""
+    return await extract_doc_text_service(doc_id, extract_config, db)
 
 
-@router.post("/{document_id}/renormalize", response_model=DocumentResponse)
-async def renormalize_document_api(
-    document_id: int,
-    char_threshold: int = 2,
-    sentence_threshold: float = 0.9,
+@router.post("/{doc_id}/normalize", response_model=DocumentResponse)
+async def normalize_doc_text(
+    doc_id: int,
+    normalize_config: NormalizeConfig = Body(default=NormalizeConfig()),
     db: Session = Depends(get_db),
 ):
-    """重新清洗文档文本"""
-    document = await renormalize_document_text(
-        db,
-        document_id,
-        char_threshold,
-        sentence_threshold,
-    )
-    if document is None:
-        raise HTTPException(status_code=404, detail="Document not found")
-    return document
+    """清洗文档文本"""
+    return await normalize_doc_text_service(doc_id, normalize_config, db)
 
 
-@router.get("/{document_id}", response_model=DocumentResponse)
-async def read_document(
-    document_id: int, include_origin: bool = False, db: Session = Depends(get_db)
+@router.get("/{doc_id}", response_model=DocumentResponse)
+async def read_doc(
+    doc_id: int,
+    db: Session = Depends(get_db),
 ):
-    """获取单个文档"""
-    document = await get_document(db, document_id)
-    if document is None:
+    """获取文档"""
+    doc = await read_doc_service(doc_id, db)
+    if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
-
-    response = document.__dict__.copy()
-    if not include_origin:
-        response.pop("origin_text", None)
-    return response
+    return doc
 
 
 @router.get("/", response_model=list[DocumentListResponse])
-async def read_documents(
+async def read_docs(
     skip: int = 0,
     limit: int = 10,
     subject_id: int | None = None,
     db: Session = Depends(get_db),
 ):
     """获取文档列表"""
-    return await get_documents(db, skip, limit, subject_id)
+    return await read_docs_service(skip, limit, subject_id, db)
 
 
-@router.put("/{document_id}", response_model=DocumentResponse)
-async def update_document_api(
-    document_id: int, document: DocumentUpdate, db: Session = Depends(get_db)
+@router.put("/{doc_id}", response_model=DocumentResponse)
+async def update_doc(
+    doc_id: int,
+    doc: DocumentUpdate,
+    db: Session = Depends(get_db),
 ):
     """更新文档"""
-    updated = await update_document(db, document_id, document)
+    updated = await update_doc_service(doc_id, doc, db)
     if updated is None:
         raise HTTPException(status_code=404, detail="Document not found")
     return updated
 
 
-@router.delete("/{document_id}")
-async def delete_document_api(document_id: int, db: Session = Depends(get_db)):
+@router.delete("/{doc_id}")
+async def delete_doc(
+    doc_id: int,
+    db: Session = Depends(get_db),
+):
     """删除文档"""
-    if not await delete_document(db, document_id):
+    if not await delete_doc_service(doc_id, db):
         raise HTTPException(status_code=404, detail="Document not found")
     return {"message": "Document deleted"}
