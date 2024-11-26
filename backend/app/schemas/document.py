@@ -1,5 +1,5 @@
-from enum import Enum
 from datetime import datetime
+from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -29,7 +29,7 @@ class DocCreate(BaseModel):
     )
     title: str | None = Field(None, description="文档标题")
     file_type: FileType | None = Field(None, description="文件类型 (pdf, txt)")
-    keyword_ids: list[int] | None = Field(default=None, description="关键词ID列表", examples=[[1, 2]])
+    keyword_ids: list[int] | None = Field(default=None, description="关键词ID列表")
 
 
 class DocUpdate(BaseModel):

@@ -3,11 +3,11 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..schemas.document import (
-    FileType,
     DocCreate,
     DocDetailResponse,
     DocResponse,
     DocUpdate,
+    FileType,
 )
 from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
 from ..services.document import (
