@@ -8,24 +8,19 @@ from ..config import settings
 from ..models.document import Document
 from ..preprocessing import extract_text, normalize_text
 from ..schemas.document import DocumentCreate, DocumentUpdate
+from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
 
 
-async def create_document(
-    db: Session,
-    document: DocumentCreate,
+async def create_doc_service(
+    doc: DocumentCreate,
     file: UploadFile,
-    num_workers: int = 4,
-    ocr_engine: str = "cnocr",
-    force_ocr: bool = False,
-    char_threshold: int = 2,
-    sentence_threshold: float = 0.9,
+    db: Session,
     upload_dir: str = settings.UPLOAD_DIR,
 ) -> Document:
-    """创建新文档"""
+    """create new document"""
     import os
     from typing import cast
 
-    # 保存文件
     file_path = os.path.join(upload_dir, cast(str, file.filename))
     os.makedirs(upload_dir, exist_ok=True)
 
@@ -38,54 +33,81 @@ async def create_document(
             status_code=400, detail=f"File upload failed: {str(e)}"
         ) from e
 
-    # 创建文档记录
-    db_document = Document(
-        title=document.title,
+    db_doc = Document(
+        title=doc.title,
         file_path=file_path,
-        file_type=document.file_type,
-        subject_id=document.subject_id,
+        file_type=doc.file_type,
+        subject_id=doc.subject_id,
     )
 
-    # 处理文档文本
+    db.add(db_doc)
+    db.commit()
+    db.refresh(db_doc)
+    return db_doc
+
+
+async def extract_doc_text_service(
+    doc_id: int,
+    extract_config: ExtractConfig,
+    db: Session,
+) -> Document | None:
+    """Extract document text"""
+    doc = await read_doc_service(doc_id, db)
+    if doc is None:
+        return None
+
     try:
-        db_document.origin_text = extract_text(
-            file_path,
-            file_type=document.file_type,
-            ocr_engine=ocr_engine,
-            num_workers=num_workers,
-            force_ocr=force_ocr,
-        )
-        db_document.processed_text = normalize_text(
-            db_document.origin_text,
-            char_threshold=char_threshold,
-            sentence_threshold=sentence_threshold,
+        doc.origin_text = extract_text(
+            doc.file_path,
+            file_type=doc.file_type,
+            **extract_config.model_dump(),
         )
     except Exception as e:
         raise HTTPException(
-            status_code=400, detail=f"Text extraction failed: {str(e)}"
+            status_code=400, detail=f"Text extracting failed: {str(e)}"
         ) from e
 
-    db.add(db_document)
     db.commit()
-    db.refresh(db_document)
+    db.refresh(doc)
+    return doc
 
-    return db_document
+
+async def normalize_doc_text_service(
+    doc_id: int,
+    normalize_config: NormalizeConfig,
+    db: Session,
+) -> Document | None:
+    """Normalize document text"""
+    doc = await read_doc_service(doc_id, db)
+    if doc is None:
+        return None
+
+    doc.processed_text = normalize_text(
+        doc.origin_text,
+        **normalize_config.model_dump(),
+    )
+    db.commit()
+    db.refresh(doc)
+    return doc
 
 
-async def get_document(db: Session, document_id: int) -> Document | None:
-    """获取单个文档"""
-    stmt = select(Document).where(Document.id == document_id)
+async def read_doc_service(
+    doc_id: int,
+    db: Session,
+) -> Document | None:
+    """Find single document"""
+    stmt = select(Document).where(Document.id == doc_id)
     result = db.execute(stmt)
     return result.scalar_one_or_none()
 
 
-async def get_documents(
+async def read_docs_service(
+    skip: int,
+    limit: int,
+    subject_id: int | None,
     db: Session,
-    skip: int = 0,
-    limit: int = 10,
-    subject_id: int | None = None,
 ) -> Sequence[Document]:
-    """获取文档列表"""
+    """Find documents"""
     stmt = select(Document)
     if subject_id is not None:
         stmt = stmt.where(Document.subject_id == subject_id)
@@ -94,78 +116,31 @@ async def get_documents(
     return result.scalars().all()
 
 
-async def update_document(
-    db: Session, document_id: int, document_update: DocumentUpdate
+async def update_doc_service(
+    doc_id: int,
+    doc_update: DocumentUpdate,
+    db: Session,
 ) -> Document | None:
-    """更新文档"""
-    db_document = await get_document(db, document_id)
-    if db_document is not None:
-        update_data = document_update.model_dump(exclude_unset=True)
+    """Update document"""
+    db_doc = await read_doc_service(doc_id, db)
+    if db_doc is not None:
+        update_data = doc_update.model_dump(exclude_unset=True)
         for key, value in update_data.items():
-            setattr(db_document, key, value)
+            setattr(db_doc, key, value)
         db.commit()
-        db.refresh(db_document)
-    return db_document
+        db.refresh(db_doc)
+    return db_doc
 
 
-async def delete_document(db: Session, document_id: int) -> bool:
-    """删除文档"""
-    stmt = select(Document).where(Document.id == document_id)
-    db_document = db.execute(stmt).scalar_one_or_none()
-    if db_document is not None:
-        db.delete(db_document)
+async def delete_doc_service(
+    doc_id: int,
+    db: Session,
+) -> bool:
+    """Delete document"""
+    stmt = select(Document).where(Document.id == doc_id)
+    db_doc = db.execute(stmt).scalar_one_or_none()
+    if db_doc is not None:
+        db.delete(db_doc)
         db.commit()
         return True
     return False
-
-
-async def reprocess_document_text(
-    db: Session,
-    document_id: int,
-    num_workers: int = 4,
-    ocr_engine: str = "cnocr",
-    force_ocr: bool = False,
-    char_threshold: int = 2,
-    sentence_threshold: float = 0.9,
-) -> Document | None:
-    """重新处理文档文本"""
-    document = await get_document(db, document_id)
-    if document is None:
-        return None
-
-    document.origin_text = extract_text(
-        document.file_path,
-        file_type=document.file_type,
-        ocr_engine=ocr_engine,
-        num_workers=num_workers,
-        force_ocr=force_ocr,
-    )
-    document.processed_text = normalize_text(
-        document.origin_text,
-        char_threshold=char_threshold,
-        sentence_threshold=sentence_threshold,
-    )
-    db.commit()
-    db.refresh(document)
-    return document
-
-
-async def renormalize_document_text(
-    db: Session,
-    document_id: int,
-    char_threshold: int = 2,
-    sentence_threshold: float = 0.9,
-) -> Document | None:
-    """重新清洗文档文本"""
-    document = await get_document(db, document_id)
-    if document is None:
-        return None
-
-    document.processed_text = normalize_text(
-        document.origin_text,
-        char_threshold=char_threshold,
-        sentence_threshold=sentence_threshold,
-    )
-    db.commit()
-    db.refresh(document)
-    return document

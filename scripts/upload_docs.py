@@ -1,66 +1,75 @@
 import argparse
+import asyncio
 from pathlib import Path
 
-import requests
+import aiohttp
+from tqdm import tqdm
+
+SUPPORTED_TYPES = {".pdf", ".txt"}
+API_URL = "http://localhost:8000/api/v1/documents"
 
 
-def upload_document(file_path: str, title: str, subject_id: int):
-    """上传单个文档"""
-    url = "http://localhost:8000/api/v1/documents"
+async def process_file(
+    session: aiohttp.ClientSession, file_path: Path, subject_id: int
+) -> bool:
+    """上传并处理单个文件"""
+    file_content = file_path.read_bytes()
 
-    with open(file_path, "rb") as f:
-        files = {"file": f}
-        data = {"title": title, "subject_id": subject_id}
+    data = aiohttp.FormData()
+    data.add_field("file", file_content, filename=file_path.name)
+    data.add_field("subject_id", str(subject_id))
 
-        response = requests.post(url, files=files, data=data)
+    async with session.post(API_URL, data=data) as resp:
+        if resp.status != 200:
+            print(f"✗ 上传失败: {file_path.name}, 状态码: {resp.status}")
+            return False
+        doc = await resp.json()
+        doc_id = doc["id"]
 
-        if response.status_code == 200:
-            print(f"✓ Successfully uploaded: {title}")
-            return response.json()
-        else:
-            print(f"✗ Upload failed: {title}")
-            print(f"Error message: {response.text}")
+    async with session.post(f"{API_URL}/{doc_id}/extract") as resp_extract:
+        if resp_extract.status != 200:
+            print(f"✗ 提取文本失败: {file_path.name}, 状态码: {resp_extract.status}")
+            return False
 
-            return None
+    async with session.post(f"{API_URL}/{doc_id}/normalize") as resp_normalize:
+        if resp_normalize.status != 200:
+            print(f"✗ 清洗文本失败: {file_path.name}, 状态码: {resp_normalize.status}")
+            return False
 
-
-def batch_upload(folder_path: str, subject_id: int):
-    """批量上传文件夹中的文档"""
-    docs_dir = Path(folder_path)
-    if not docs_dir.exists():
-        print(f"Error: folder path: '{folder_path}' does not exist")
-        return
-
-    for pdf_file in docs_dir.glob("*.pdf"):
-        upload_document(
-            file_path=str(pdf_file), title=pdf_file.stem, subject_id=subject_id
-        )
+    return True
 
 
-def main():
-    parser = argparse.ArgumentParser(description="文档上传工具")
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--file", help="单个文件路径")
-    group.add_argument("--folder", help="文件夹路径")
-
-    parser.add_argument("--title", help="文档标题（仅用于单文件上传）")
-    parser.add_argument(
-        "--subject",
-        type=int,
-        required=True,
-        help="学科ID (1=金融, 2=经济, 3=统计, 4=数据科学)",
-    )
-
+async def main():
+    parser = argparse.ArgumentParser(description="上传并处理文档")
+    parser.add_argument("path", help="文件或文件夹路径")
+    parser.add_argument("--subject", type=int, required=True, help="学科ID")
     args = parser.parse_args()
 
-    if args.file:
-        # 单文件上传
-        title = args.title or Path(args.file).stem
-        upload_document(args.file, title, args.subject)
+    path = Path(args.path)
+    if not path.exists():
+        print(f"路径不存在: {path}")
+        return
+
+    if path.is_file():
+        files = [path] if path.suffix.lower() in SUPPORTED_TYPES else []
     else:
-        # 批量上传
-        batch_upload(args.folder, args.subject)
+        files = [f for f in path.iterdir() if f.suffix.lower() in SUPPORTED_TYPES]
+
+    if not files:
+        print(f"没有找到支持的文件 (支持: {', '.join(SUPPORTED_TYPES)})")
+        return
+
+    results = []
+    async with aiohttp.ClientSession() as session:
+        tasks = [process_file(session, f, args.subject) for f in files]
+
+        for task in tqdm(
+            asyncio.as_completed(tasks), total=len(files), desc="uploading", unit="file"
+        ):
+            results.append(await task)
+
+        print(f"\nProcessed: {sum(results)}/{len(files)} files successfully.")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
