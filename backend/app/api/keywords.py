@@ -16,7 +16,7 @@ from ..services.keyword import (
 router = APIRouter(prefix="/keywords", tags=["keywords"])
 
 
-@router.post("/", response_model=KeywordResponse)
+@router.post("", response_model=KeywordResponse)
 async def create_keyword_api(
     keyword_name: str,
     db: Session = Depends(get_db),
@@ -44,7 +44,7 @@ async def search_keyword(
     return keyword
 
 
-@router.get("/", response_model=list[KeywordResponse])
+@router.get("", response_model=list[KeywordResponse])
 async def read_keywords(
     skip: int = 0,
     limit: int = 10,

@@ -14,7 +14,6 @@ from app.services.document import (
     extract_doc_text_service,
     normalize_doc_text_service,
     read_doc_service,
-    read_docs_service,
     update_doc_service,
 )
 

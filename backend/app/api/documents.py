@@ -24,7 +24,7 @@ from ..services.document import (
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-@router.post("/", response_model=DocumentResponse)
+@router.post("", response_model=DocumentResponse)
 async def create_doc(
     file: UploadFile = File(...),
     title: str | None = Form(
@@ -78,7 +78,7 @@ async def read_doc(
     return doc
 
 
-@router.get("/", response_model=list[DocumentListResponse])
+@router.get("", response_model=list[DocumentListResponse])
 async def read_docs(
     skip: int = 0,
     limit: int = 10,

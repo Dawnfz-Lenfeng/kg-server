@@ -18,7 +18,6 @@ class ExtractConfig(BaseModel):
     )
     last_page: int | None = Field(
         default=None,
-        examples=[None],
         description="Last page to extract (None for all pages)",
     )
     ocr_engine: OCREngine = Field(
