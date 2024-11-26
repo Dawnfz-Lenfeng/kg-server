@@ -96,7 +96,7 @@ async def test_extract_doc_text(
     db: Session, sample_doc: Document, ocr_engine: OCREngine
 ):
     """测试提取文档文本"""
-    config = ExtractConfig(num_workers=2, ocr_engine=ocr_engine)
+    config = ExtractConfig(ocr_engine=ocr_engine, force_ocr=True)
     doc = await extract_doc_text_service(
         doc_id=sample_doc.id,
         extract_config=config,
