@@ -1,19 +1,18 @@
-from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.schemas.document import DocUploadResult
+
 from ..database import get_db
-from ..schemas.document import (
-    DocCreate,
-    DocDetailResponse,
-    DocResponse,
-    DocUpdate,
-    FileType,
-)
+from ..schemas.document import DocCreate, DocDetailResponse, DocResponse, DocUpdate
 from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
 from ..services.document import (
     create_doc_service,
+    create_docs_service,
     delete_doc_service,
     extract_doc_text_service,
+    get_doc,
+    get_docs,
     normalize_doc_text_service,
     read_doc_service,
     read_docs_service,
@@ -23,26 +22,22 @@ from ..services.document import (
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-def get_doc(
-    subject_id: int = Form(..., examples=[1, 2, 3, 4]),
-    title: str | None = Form(None),
-    file_type: FileType | None = Form(None),
-    keyword_ids: list[int] | None = Form(None, examples=[[1, 2]]),
-):
-    """依赖函数，解析文档上传的表单数据"""
-    return DocCreate(
-        title=title, file_type=file_type, subject_id=subject_id, keyword_ids=keyword_ids
-    )
-
-
-@router.post("", response_model=DocDetailResponse)
+@router.post("", response_model=DocUploadResult)
 async def create_doc(
-    file: UploadFile = File(...),
     doc: DocCreate = Depends(get_doc),
     db: Session = Depends(get_db),
-):
+) -> DocUploadResult:
     """上传文档"""
-    return await create_doc_service(file, doc, db)
+    return await create_doc_service(doc, db)
+
+
+@router.post("/batch", response_model=list[DocUploadResult])
+async def create_docs(
+    docs: list[DocCreate] = Depends(get_docs),
+    db: Session = Depends(get_db),
+) -> list[DocUploadResult]:
+    """批量上传文档"""
+    return await create_docs_service(docs, db)
 
 
 @router.post("/{doc_id}/extract", response_model=DocDetailResponse)
