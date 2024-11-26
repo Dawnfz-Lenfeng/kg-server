@@ -30,7 +30,9 @@ class Document(Base):
     )
 
     subject: Mapped[Subject] = relationship(back_populates="documents")
-    keywords: Mapped[list[Keyword]] = relationship(
+    keywords: Mapped[set[Keyword]] = relationship(
+        "Keyword",
         secondary=document_keywords,
+        collection_class=set,
         back_populates="documents",
     )
