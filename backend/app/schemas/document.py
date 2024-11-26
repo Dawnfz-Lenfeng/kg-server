@@ -21,14 +21,10 @@ class DocBase(BaseModel):
     )
 
 
-class DocCreate(BaseModel):
+class DocCreate(DocBase):
     """创建文档请求模型"""
 
-    subject_id: int = Field(
-        ..., description="学科ID (1=金融, 2=经济, 3=统计, 4=数据科学)", ge=1
-    )
-    title: str | None = Field(None, description="文档标题")
-    file_type: FileType | None = Field(None, description="文件类型 (pdf, txt)")
+    file_path: str = Field(..., description="文件路径")
     keyword_ids: list[int] | None = Field(default=None, description="关键词ID列表")
 
 
@@ -57,3 +53,13 @@ class DocDetailResponse(DocResponse):
     file_path: str = Field(..., description="文件路径")
     origin_text: str | None = Field(None, description="原始文本内容")
     processed_text: str | None = Field(None, description="处理后的文本内容")
+
+
+class DocUploadResult(BaseModel):
+    """文档上传结果"""
+
+    success: bool = Field(..., description="是否上传成功")
+    document: DocDetailResponse | None = Field(None, description="文档详情")
+    error: str | None = Field(None, description="错误信息")
+
+    model_config = ConfigDict(from_attributes=True)

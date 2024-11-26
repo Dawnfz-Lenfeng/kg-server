@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..database import transaction
 from ..models.document import Document
 from ..models.keyword import Keyword
 from ..schemas.keyword import KeywordCreate, KeywordUpdate
@@ -16,18 +17,17 @@ async def create_keyword_service(
     """创建关键词"""
     existing = await read_keyword_by_name_service(keyword.name, db)
     if existing:
-        raise HTTPException(
-            status_code=400, detail=f"Keyword '{keyword.name}' already exists"
-        )
+        raise HTTPException(status_code=400, detail=f"关键词 '{keyword.name}' 已存在")
 
-    db_keyword = Keyword(name=keyword.name)
-    if keyword.document_ids:
-        stmt = select(Document).where(Document.id.in_(keyword.document_ids))
-        documents = set(db.execute(stmt).scalars().all())
-        db_keyword.documents = documents
+    with transaction(db):
+        db_keyword = Keyword(name=keyword.name)
+        if keyword.document_ids:
+            stmt = select(Document).where(Document.id.in_(keyword.document_ids))
+            documents = set(db.execute(stmt).scalars().all())
+            db_keyword.documents = documents
 
-    db.add(db_keyword)
-    db.commit()
+        db.add(db_keyword)
+
     db.refresh(db_keyword)
     return db_keyword
 
@@ -77,29 +77,32 @@ async def update_keyword_service(
     if db_keyword is None:
         return None
 
-    if keyword_update.name and keyword_update.name != db_keyword.name:
-        existing = await read_keyword_by_name_service(keyword_update.name, db)
-        if existing:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Keyword '{keyword_update.name}' already exists",
-            )
-        db_keyword.name = keyword_update.name
+    with transaction(db):
+        if keyword_update.name and keyword_update.name != db_keyword.name:
+            existing = await read_keyword_by_name_service(keyword_update.name, db)
+            if existing:
+                raise HTTPException(
+                    status_code=400, detail=f"关键词 '{keyword_update.name}' 已存在"
+                )
+            db_keyword.name = keyword_update.name
 
-    if keyword_update.documents is not None:
-        if keyword_update.documents.add:
-            stmt = select(Document).where(Document.id.in_(keyword_update.documents.add))
-            docs_to_add = set(db.execute(stmt).scalars().all())
-            db_keyword.documents |= docs_to_add
+        if keyword_update.documents is not None:
+            if keyword_update.documents.add:
+                stmt = select(Document).where(
+                    Document.id.in_(keyword_update.documents.add)
+                )
+                docs_to_add = set(db.execute(stmt).scalars().all())
+                db_keyword.documents |= docs_to_add
 
-        if keyword_update.documents.remove:
-            stmt = select(Document).where(
-                Document.id.in_(keyword_update.documents.remove)
-            )
-            docs_to_remove = set(db.execute(stmt).scalars().all())
-            db_keyword.documents -= docs_to_remove
+            if keyword_update.documents.remove:
+                stmt = select(Document).where(
+                    Document.id.in_(keyword_update.documents.remove)
+                )
+                docs_to_remove = set(db.execute(stmt).scalars().all())
+                db_keyword.documents -= docs_to_remove
 
-    db.commit()
+        db.add(db_keyword)
+
     db.refresh(db_keyword)
     return db_keyword
 
@@ -111,7 +114,8 @@ async def delete_keyword_service(
     """删除关键词"""
     db_keyword = await read_keyword_service(keyword_id, db)
     if db_keyword is not None:
-        db.delete(db_keyword)
-        db.commit()
+        with transaction(db):
+            db.delete(db_keyword)
         return True
+
     return False

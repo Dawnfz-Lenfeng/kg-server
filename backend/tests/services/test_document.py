@@ -12,10 +12,12 @@ from app.schemas.document import DocCreate, DocUpdate
 from app.schemas.preprocessing import ExtractConfig, NormalizeConfig, OCREngine
 from app.services.document import (
     create_doc_service,
+    create_docs_service,
     delete_doc_service,
     extract_doc_text_service,
     normalize_doc_text_service,
     read_doc_service,
+    save_uploaded_file,
     update_doc_service,
 )
 
@@ -54,13 +56,15 @@ async def sample_doc(db: Session, pdf_file: UploadFile, sample_keywords: list[Ke
     """创建测试文档"""
     doc = DocCreate(
         title="测试文档",
-        file="pdf",
+        file_path=await save_uploaded_file(file=pdf_file),
+        file_type="pdf",
         subject_id=1,
-        keyword_ids=[k.id for k in sample_keywords[:2]],  # 关联前两个关键词
+        keyword_ids=[k.id for k in sample_keywords[:2]],
     )
-    db_doc = await create_doc_service(file=pdf_file, doc=doc, db=db)
-    yield db_doc
-    await delete_doc_service(doc_id=db_doc.id, db=db)
+    result = await create_doc_service(doc=doc, db=db)
+    assert result.success and result.document is not None
+    yield result.document
+    await delete_doc_service(doc_id=result.document.id, db=db)
 
 
 @pytest.mark.asyncio
@@ -70,11 +74,18 @@ async def test_create_doc(
     """测试创建文档"""
     doc_create = DocCreate(
         title="新建文档",
+        file_path=await save_uploaded_file(file=pdf_file),
+        file_type="pdf",
         subject_id=1,
         keyword_ids=[sample_keywords[0].id, sample_keywords[1].id],
     )
-    doc = await create_doc_service(file=pdf_file, doc=doc_create, db=db)
+    result = await create_doc_service(doc=doc_create, db=db)
 
+    assert result.success
+    assert result.error is None
+    assert result.document is not None
+
+    doc = result.document
     assert doc.id is not None
     assert doc.title == "新建文档"
     assert doc.file_type == "pdf"
@@ -83,6 +94,35 @@ async def test_create_doc(
     assert len(keyword_ids) == 2
     assert sample_keywords[0].id in keyword_ids
     assert sample_keywords[1].id in keyword_ids
+
+
+@pytest.mark.asyncio
+async def test_batch_create_docs(
+    db: Session, pdf_file: UploadFile, sample_keywords: list[Keyword]
+):
+    """测试批量创建文档"""
+    docs = [
+        DocCreate(
+            title=f"文档{i}",
+            file_path=await save_uploaded_file(file=pdf_file),
+            file_type="pdf",
+            subject_id=1,
+            keyword_ids=[k.id for k in sample_keywords[:2]],
+        )
+        for i in range(3)
+    ]
+
+    results = await create_docs_service(docs=docs, db=db)
+
+    assert len(results) == 3
+    assert all(r.success for r in results)
+    assert all(r.document is not None for r in results)
+    assert all(r.error is None for r in results)
+
+    # 清理测试数据
+    for result in results:
+        if result.document:
+            await delete_doc_service(doc_id=result.document.id, db=db)
 
 
 @pytest.mark.asyncio
