@@ -1,3 +1,4 @@
+from enum import Enum
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -5,11 +6,16 @@ from pydantic import BaseModel, ConfigDict, Field
 from .base import KeywordBrief, SetOperation
 
 
+class FileType(str, Enum):
+    PDF = "pdf"
+    TXT = "txt"
+
+
 class DocBase(BaseModel):
     """文档基础模型"""
 
     title: str = Field(..., description="文档标题")
-    file_type: str = Field(..., description="文件类型 (pdf, txt)")
+    file_type: FileType = Field(FileType.PDF, description="文件类型 (pdf, txt)")
     subject_id: int = Field(
         ..., description="学科ID (1=金融, 2=经济, 3=统计, 4=数据科学)", ge=1
     )
@@ -18,12 +24,12 @@ class DocBase(BaseModel):
 class DocCreate(BaseModel):
     """创建文档请求模型"""
 
-    title: str | None = Field(None, description="文档标题")
-    file_type: str | None = Field(None, description="文件类型 (pdf, txt)")
     subject_id: int = Field(
         ..., description="学科ID (1=金融, 2=经济, 3=统计, 4=数据科学)", ge=1
     )
-    keyword_ids: list[int] | None = Field(default=None, description="关键词ID列表")
+    title: str | None = Field(None, description="文档标题")
+    file_type: FileType | None = Field(None, description="文件类型 (pdf, txt)")
+    keyword_ids: list[int] | None = Field(default=None, description="关键词ID列表", examples=[[1, 2]])
 
 
 class DocUpdate(BaseModel):

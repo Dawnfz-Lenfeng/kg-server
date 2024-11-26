@@ -1,10 +1,14 @@
-from pathlib import Path
-
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..schemas.document import DocCreate, DocDetailResponse, DocResponse, DocUpdate
+from ..schemas.document import (
+    FileType,
+    DocCreate,
+    DocDetailResponse,
+    DocResponse,
+    DocUpdate,
+)
 from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
 from ..services.document import (
     create_doc_service,
@@ -19,10 +23,22 @@ from ..services.document import (
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
+def get_doc(
+    subject_id: int = Form(..., examples=[1, 2, 3, 4]),
+    title: str | None = Form(None),
+    file_type: FileType | None = Form(None),
+    keyword_ids: list[int] | None = Form(None, examples=[[1, 2]]),
+):
+    """依赖函数，解析文档上传的表单数据"""
+    return DocCreate(
+        title=title, file_type=file_type, subject_id=subject_id, keyword_ids=keyword_ids
+    )
+
+
 @router.post("", response_model=DocDetailResponse)
 async def create_doc(
     file: UploadFile = File(...),
-    doc: DocCreate = Body(...),
+    doc: DocCreate = Depends(get_doc),
     db: Session = Depends(get_db),
 ):
     """上传文档"""
