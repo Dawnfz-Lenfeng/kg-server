@@ -2,6 +2,7 @@ import asyncio
 import os
 import uuid
 from pathlib import Path
+from typing import Sequence, cast
 
 from fastapi import File, Form, HTTPException, UploadFile
 from sqlalchemy import select
@@ -12,7 +13,13 @@ from ..database import transaction
 from ..models.document import Document
 from ..models.keyword import Keyword
 from ..preprocessing import extract_text, normalize_text
-from ..schemas.document import DocCreate, DocUpdate, DocUploadResult, FileType
+from ..schemas.document import (
+    DocCreate,
+    DocDetailResponse,
+    DocUpdate,
+    DocUploadResult,
+    FileType,
+)
 from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
 
 
@@ -21,6 +28,19 @@ def get_unique_filename(original_name: str) -> str:
     stem = Path(original_name).stem
     suffix = Path(original_name).suffix
     return f"{stem}_{uuid.uuid4().hex[:8]}{suffix}"
+
+
+async def save_uploaded_file(file: UploadFile) -> str:
+    """保存上传的文件到指定目录"""
+    unique_filename = get_unique_filename(cast(str, file.filename))
+    file_path = os.path.join(settings.UPLOAD_DIR, unique_filename)
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+
+    content = await file.read()
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    return file_path
 
 
 async def get_doc(
@@ -34,18 +54,11 @@ async def get_doc(
     if not file.filename:
         raise HTTPException(status_code=400, detail="File name is required")
 
-    unique_filename = get_unique_filename(file.filename)
-    file_path = os.path.join(settings.UPLOAD_DIR, unique_filename)
-    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-
-    content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
-
+    suffix = Path(file.filename).suffix[1:]
     return DocCreate(
         title=title or Path(file.filename).stem,
-        file_path=file_path,
-        file_type=file_type or Path(file.filename).suffix[1:],
+        file_path=await save_uploaded_file(file),
+        file_type=file_type or FileType(suffix),
         subject_id=subject_id,
         keyword_ids=keyword_ids,
     )
@@ -55,20 +68,23 @@ async def get_docs(
     files: list[UploadFile] = File(...),
     subject_id: int = Form(..., examples=[1, 2, 3, 4]),
     titles: list[str] | None = Form(None),
-    file_type: FileType | None = Form(None),
+    file_types: list[FileType] | None = Form(None),
 ) -> list[DocCreate]:
     if titles is not None and len(files) != len(titles):
-        raise HTTPException(status_code=400, detail="文件数量与标题数量不匹配")
+        raise HTTPException(status_code=400, detail="File and title count mismatch")
+
+    if file_types is not None and len(files) != len(file_types):
+        raise HTTPException(status_code=400, detail="File and file type count mismatch")
 
     tasks = [
         get_doc(
             file=file,
-            title=title,
-            file_type=file_type,
+            title=titles[i] if titles is not None else None,
+            file_type=file_types[i] if file_types is not None else None,
             subject_id=subject_id,
             keyword_ids=None,
         )
-        for file, title in zip(files, titles or [None] * len(files))
+        for i, file in enumerate(files)
     ]
 
     result = await asyncio.gather(*tasks)
@@ -94,7 +110,9 @@ async def create_doc_service(
             db.add(db_doc)
 
         db.refresh(db_doc)
-        return DocUploadResult(success=True, document=db_doc, error=None)
+        return DocUploadResult(
+            success=True, document=cast(DocDetailResponse, db_doc), error=None
+        )
 
     except Exception as e:
         if os.path.exists(doc.file_path):
@@ -181,7 +199,7 @@ async def read_docs_service(
     limit: int,
     subject_id: int | None,
     db: Session,
-) -> list[Document]:
+) -> Sequence[Document]:
     """获取文档列表"""
     stmt = select(Document).options(selectinload(Document.keywords))  # 预加载关键词
     if subject_id is not None:

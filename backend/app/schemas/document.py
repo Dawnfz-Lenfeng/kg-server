@@ -56,9 +56,11 @@ class DocDetailResponse(DocResponse):
     processed_text: str | None = Field(None, description="处理后的文本内容")
 
 
-class DocUploadResult(TypedDict):
+class DocUploadResult(BaseModel):
     """文档上传结果"""
 
-    success: bool
-    document: DocDetailResponse | None
-    error: str | None
+    success: bool = Field(..., description="是否上传成功")
+    document: DocDetailResponse | None = Field(None, description="文档详情")
+    error: str | None = Field(None, description="错误信息")
+
+    model_config = ConfigDict(from_attributes=True)
