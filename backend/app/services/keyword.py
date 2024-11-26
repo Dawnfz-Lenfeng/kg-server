@@ -1,117 +1,117 @@
 from typing import Sequence
 
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models.document import Document
 from ..models.keyword import Keyword
+from ..schemas.keyword import KeywordCreate, KeywordUpdate
 
 
-async def create_keyword(db: Session, name: str) -> Keyword:
+async def create_keyword_service(
+    keyword: KeywordCreate,
+    db: Session,
+) -> Keyword:
     """创建关键词"""
-    db_keyword = Keyword(name=name)
+    existing = await read_keyword_by_name_service(keyword.name, db)
+    if existing:
+        raise HTTPException(
+            status_code=400, detail=f"Keyword '{keyword.name}' already exists"
+        )
+
+    db_keyword = Keyword(name=keyword.name)
+    if keyword.document_ids:
+        stmt = select(Document).where(Document.id.in_(keyword.document_ids))
+        documents = set(db.execute(stmt).scalars().all())
+        db_keyword.documents = documents
+
     db.add(db_keyword)
     db.commit()
     db.refresh(db_keyword)
     return db_keyword
 
 
-async def get_keyword(
-    db: Session, keyword_id: int | None = None, keyword_name: str | None = None
+async def read_keyword_service(
+    keyword_id: int,
+    db: Session,
 ) -> Keyword | None:
-    """获取单个关键词（通过ID或名称）"""
-    if not (keyword_id or keyword_name):
-        return None
-
-    stmt = select(Keyword)
-    if keyword_id:
-        stmt = stmt.where(Keyword.id == keyword_id)
-    if keyword_name:
-        stmt = stmt.where(Keyword.name == keyword_name)
-
+    """获取单个关键词"""
+    stmt = select(Keyword).where(Keyword.id == keyword_id)
     result = db.execute(stmt)
     return result.scalar_one_or_none()
 
 
-async def get_keywords(
+async def read_keyword_by_name_service(
+    name: str,
     db: Session,
-    skip: int = 0,
-    limit: int = 10,
-    search_name: str | None = None,
+) -> Keyword | None:
+    """通过名称获取关键词"""
+    stmt = select(Keyword).where(Keyword.name == name)
+    result = db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def read_keywords_service(
+    skip: int,
+    limit: int,
+    search: str | None,
+    db: Session,
 ) -> Sequence[Keyword]:
-    """获取关键词列表，支持搜索名称"""
+    """获取关键词列表"""
     stmt = select(Keyword)
-
-    if search_name:
-        stmt = stmt.where(Keyword.name.ilike(f"%{search_name}%"))
-
+    if search:
+        stmt = stmt.where(Keyword.name.ilike(f"%{search}%"))
     stmt = stmt.offset(skip).limit(limit)
     result = db.execute(stmt)
     return result.scalars().all()
 
 
-async def delete_keyword(db: Session, keyword_id: int) -> bool:
+async def update_keyword_service(
+    keyword_id: int,
+    keyword_update: KeywordUpdate,
+    db: Session,
+) -> Keyword | None:
+    """更新关键词"""
+    db_keyword = await read_keyword_service(keyword_id, db)
+    if db_keyword is None:
+        return None
+
+    if keyword_update.name and keyword_update.name != db_keyword.name:
+        existing = await read_keyword_by_name_service(keyword_update.name, db)
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Keyword '{keyword_update.name}' already exists",
+            )
+        db_keyword.name = keyword_update.name
+
+    if keyword_update.documents is not None:
+        if keyword_update.documents.add:
+            stmt = select(Document).where(Document.id.in_(keyword_update.documents.add))
+            docs_to_add = set(db.execute(stmt).scalars().all())
+            db_keyword.documents |= docs_to_add
+
+        if keyword_update.documents.remove:
+            stmt = select(Document).where(
+                Document.id.in_(keyword_update.documents.remove)
+            )
+            docs_to_remove = set(db.execute(stmt).scalars().all())
+            db_keyword.documents -= docs_to_remove
+
+    db.commit()
+    db.refresh(db_keyword)
+    return db_keyword
+
+
+async def delete_keyword_service(
+    keyword_id: int,
+    db: Session,
+) -> bool:
     """删除关键词"""
-    keyword = await get_keyword(db, keyword_id)
-    if keyword is not None:
-        db.delete(keyword)
+    db_keyword = await read_keyword_service(keyword_id, db)
+    if db_keyword is not None:
+        db.delete(db_keyword)
         db.commit()
         return True
     return False
-
-
-async def create_document_keyword(
-    db: Session, document_id: int, keyword_id: int
-) -> dict | None:
-    """为文档添加关键词"""
-    stmt = select(Document).where(Document.id == document_id)
-    document = db.execute(stmt).scalar_one_or_none()
-
-    keyword = await get_keyword(db, keyword_id)
-
-    if not (document and keyword):
-        return None
-
-    document.keywords.append(keyword)
-    db.commit()
-
-    return {
-        "document_id": document_id,
-        "keyword": keyword,
-    }
-
-
-async def get_document_keywords(db: Session, document_id: int) -> Sequence[dict]:
-    """获取文档的关键词列表"""
-    stmt = select(Document).where(Document.id == document_id)
-    document = db.execute(stmt).scalar_one_or_none()
-    if not document:
-        return []
-
-    return [
-        {
-            "document_id": document_id,
-            "keyword": keyword,
-        }
-        for keyword in document.keywords
-    ]
-
-
-async def delete_document_keyword(
-    db: Session, document_id: int, keyword_id: int
-) -> bool:
-    """删除文档的关键词关联"""
-    stmt = select(Document).where(Document.id == document_id)
-    document = db.execute(stmt).scalar_one_or_none()
-    if not document:
-        return False
-
-    keyword = await get_keyword(db, keyword_id)
-    if not keyword:
-        return False
-
-    # 删除关联关系
-    document.keywords.remove(keyword)
-    db.commit()
-
-    return True
