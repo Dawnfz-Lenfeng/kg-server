@@ -2,21 +2,15 @@
 
 ### 使用上传脚本
 
-我们提供了文档上传脚本 `scripts/upload_docs.py`，支持单个和批量上传。
+我们提供了文档上传脚本 `scripts/upload_docs.py`，支持单个文件和文件夹上传。
 
-#### 1. 单个文件上传
+#### 使用方法
 ```bash
-# 上传单个PDF文件（指定标题）
-python -m scripts.upload_docs --file "data/金融市场.pdf" --title "金融市场分析" --subject 1
+# 上传单个文件
+python -m scripts.upload_docs "data/金融市场.pdf" --subject 1
 
-# 上传单个PDF文件（使用文件名作为标题）
-python -m scripts.upload_docs --file "data/金融市场.pdf" --subject 1
-```
-
-#### 2. 批量上传
-```bash
-# 上传整个文件夹中的PDF文件
-python -m scripts.upload_docs --folder "data/金融" --subject 1
+# 上传整个文件夹
+python -m scripts.upload_docs "data/金融" --subject 1
 ```
 
 #### 学科ID对照表
@@ -31,4 +25,10 @@ python -m scripts.upload_docs --folder "data/金融" --subject 1
 1. 确保文件存在且可读
 2. 仅支持PDF和TXT格式
 3. 使用正确的学科ID
-4. 文件名避免使用特殊字符
+4. 文件名会自动作为文档标题
+5. 文件名避免使用特殊字符
+
+#### 处理流程
+1. 上传文件到服务器
+2. 自动提取文档文本
+3. 自动清洗处理文本
