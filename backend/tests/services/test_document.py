@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -65,6 +66,31 @@ async def sample_doc(db: Session, pdf_file: UploadFile, sample_keywords: list[Ke
     assert result.success and result.document is not None
     yield result.document
     await delete_doc_service(doc_id=result.document.id, db=db)
+
+
+@pytest_asyncio.fixture
+async def sample_docs(
+    db: Session, pdf_file: UploadFile, sample_keywords: list[Keyword]
+):
+    """创建测试文档列表"""
+
+    docs = [
+        DocCreate(
+            title=f"测试文档{i}",
+            file_path=await save_uploaded_file(file=pdf_file),
+            file_type="pdf",
+            subject_id=1,
+            keyword_ids=[k.id for k in sample_keywords[:2]],
+        )
+        for i in range(3)
+    ]
+    task = [create_doc_service(doc=doc, db=db) for doc in docs]
+    results = await asyncio.gather(*task)
+    for result in results:
+        assert result.success and result.document is not None
+    yield [result.document for result in results]
+    for result in results:
+        await delete_doc_service(doc_id=result.document.id, db=db)
 
 
 @pytest.mark.asyncio
@@ -191,6 +217,14 @@ async def test_extract_doc_text(
 
     assert doc is not None
     assert doc.origin_text is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ocr_engine", list(OCREngine))
+async def test_extract_docs_text(
+    db: Session, sample_docs: list[Document], ocr_engine: OCREngine
+):
+   sample_docs[0].
 
 
 @pytest.mark.asyncio
