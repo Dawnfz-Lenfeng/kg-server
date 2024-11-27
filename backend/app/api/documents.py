@@ -1,20 +1,18 @@
-from pathlib import Path
-
-from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.schemas.document import DocUploadResult
+
 from ..database import get_db
-from ..schemas.document import (
-    DocumentCreate,
-    DocumentListResponse,
-    DocumentResponse,
-    DocumentUpdate,
-)
+from ..schemas.document import DocCreate, DocDetailResponse, DocResponse, DocUpdate
 from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
 from ..services.document import (
     create_doc_service,
+    create_docs_service,
     delete_doc_service,
     extract_doc_text_service,
+    get_doc,
+    get_docs,
     normalize_doc_text_service,
     read_doc_service,
     read_docs_service,
@@ -24,29 +22,25 @@ from ..services.document import (
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-@router.post("", response_model=DocumentResponse)
+@router.post("", response_model=DocUploadResult)
 async def create_doc(
-    file: UploadFile = File(...),
-    title: str | None = Form(
-        None, description="Optional custom title, if not provided, use file name"
-    ),
-    subject_id: int = Form(...),
+    doc: DocCreate = Depends(get_doc),
     db: Session = Depends(get_db),
-):
+) -> DocUploadResult:
     """上传文档"""
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="File name is required")
-
-    path = Path(file.filename)
-    doc = DocumentCreate(
-        title=title or path.stem,
-        file_type=path.suffix[1:],
-        subject_id=subject_id,
-    )
-    return await create_doc_service(doc, file, db)
+    return await create_doc_service(doc, db)
 
 
-@router.post("/{doc_id}/extract", response_model=DocumentResponse)
+@router.post("/batch", response_model=list[DocUploadResult])
+async def create_docs(
+    docs: list[DocCreate] = Depends(get_docs),
+    db: Session = Depends(get_db),
+) -> list[DocUploadResult]:
+    """批量上传文档"""
+    return await create_docs_service(docs, db)
+
+
+@router.post("/{doc_id}/extract", response_model=DocDetailResponse)
 async def extract_doc_text(
     doc_id: int,
     extract_config: ExtractConfig = Body(default=ExtractConfig()),
@@ -56,7 +50,7 @@ async def extract_doc_text(
     return await extract_doc_text_service(doc_id, extract_config, db)
 
 
-@router.post("/{doc_id}/normalize", response_model=DocumentResponse)
+@router.post("/{doc_id}/normalize", response_model=DocDetailResponse)
 async def normalize_doc_text(
     doc_id: int,
     normalize_config: NormalizeConfig = Body(default=NormalizeConfig()),
@@ -66,7 +60,7 @@ async def normalize_doc_text(
     return await normalize_doc_text_service(doc_id, normalize_config, db)
 
 
-@router.get("/{doc_id}", response_model=DocumentResponse)
+@router.get("/{doc_id}", response_model=DocDetailResponse)
 async def read_doc(
     doc_id: int,
     db: Session = Depends(get_db),
@@ -78,7 +72,7 @@ async def read_doc(
     return doc
 
 
-@router.get("", response_model=list[DocumentListResponse])
+@router.get("", response_model=list[DocResponse])
 async def read_docs(
     skip: int = 0,
     limit: int = 10,
@@ -89,10 +83,10 @@ async def read_docs(
     return await read_docs_service(skip, limit, subject_id, db)
 
 
-@router.put("/{doc_id}", response_model=DocumentResponse)
+@router.put("/{doc_id}", response_model=DocResponse)
 async def update_doc(
     doc_id: int,
-    doc: DocumentUpdate,
+    doc: DocUpdate,
     db: Session = Depends(get_db),
 ):
     """更新文档"""
