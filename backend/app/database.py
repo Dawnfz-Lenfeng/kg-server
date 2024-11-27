@@ -1,5 +1,7 @@
+from contextlib import contextmanager
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from .config import settings
 
@@ -25,3 +27,14 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+@contextmanager
+def transaction(db: Session):
+    """事务上下文管理器"""
+    try:
+        yield
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
