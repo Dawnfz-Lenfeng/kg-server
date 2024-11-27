@@ -31,7 +31,7 @@ async def upload_file(
 
 
 async def upload_files(
-    session: aiohttp.ClientSession, path: list[Path], subject_id: int
+    session: aiohttp.ClientSession, paths: list[Path], subject_id: int
 ) -> list[int]:
     pass
 
