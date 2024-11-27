@@ -35,12 +35,32 @@ docker-compose exec db psql -U dev_user -d ckgcus
 ### 文档表 (documents)
 | 字段 | 类型 | 说明 |
 |------|------|------|
-
+|id|int|文档编号；主键|
+|title|str|文档标题|
+|file_path|str|文件地址|
+|file_type|str|文件类型|
+|subject_id|int|学科编号；外键|
+|origin_text|str|原文本|
+|processed_text|str|清洗后文本|
+|created_at|datetime|创建时间|
+|updated_at|datetime|修改时间|
+|subject|Subject|学科；关联属性学科表|
+|keywords|list[Keyword]|关键词；关联关键词表|
 
 ### 学科表 (subjects)
 | 字段 | 类型 | 说明 |
 |------|------|------|
+|id|int|学科编号；主键|
+|name|str|学科名称|
+|description|str|描述|
+|documents|list[Document]|文档；关联文档表|
 
+### 关键词表 (keywords)
+| 字段 | 类型 | 说明 |
+|------|------|------|
+|id|int|关键词编号；主键|
+|name|str|关键词|
+|documents|list[Document]|文档；关联文档表|
 
 ### 学科类型
 - FINANCE (金融)
