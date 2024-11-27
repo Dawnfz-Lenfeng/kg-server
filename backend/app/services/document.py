@@ -1,92 +1,207 @@
-from typing import Sequence
+import asyncio
+import os
+import uuid
+from pathlib import Path
+from typing import Sequence, cast
 
-from fastapi import HTTPException, UploadFile
+from fastapi import File, Form, HTTPException, UploadFile
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from ..config import settings
+from ..database import transaction
 from ..models.document import Document
+from ..models.keyword import Keyword
 from ..preprocessing import extract_text, normalize_text
-from ..schemas.document import DocumentCreate, DocumentUpdate
+from ..schemas.document import (
+    DocCreate,
+    DocDetailResponse,
+    DocUpdate,
+    DocUploadResult,
+    FileType,
+)
+from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
 
 
-async def create_document(
-    db: Session,
-    document: DocumentCreate,
-    file: UploadFile,
-    num_workers: int = 4,
-    ocr_engine: str = "cnocr",
-    force_ocr: bool = False,
-    char_threshold: int = 2,
-    sentence_threshold: float = 0.9,
-    upload_dir: str = settings.UPLOAD_DIR,
-) -> Document:
-    """创建新文档"""
-    import os
-    from typing import cast
+def get_unique_filename(original_name: str) -> str:
+    """生成唯一文件名"""
+    stem = Path(original_name).stem
+    suffix = Path(original_name).suffix
+    return f"{stem}_{uuid.uuid4().hex[:8]}{suffix}"
 
-    # 保存文件
-    file_path = os.path.join(upload_dir, cast(str, file.filename))
-    os.makedirs(upload_dir, exist_ok=True)
 
-    try:
-        content = await file.read()
-        with open(file_path, "wb") as f:
-            f.write(content)
-    except Exception as e:
-        raise HTTPException(
-            status_code=400, detail=f"File upload failed: {str(e)}"
-        ) from e
+async def save_uploaded_file(file: UploadFile) -> str:
+    """保存上传的文件到指定目录"""
+    unique_filename = get_unique_filename(cast(str, file.filename))
+    file_path = os.path.join(settings.UPLOAD_DIR, unique_filename)
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 
-    # 创建文档记录
-    db_document = Document(
-        title=document.title,
-        file_path=file_path,
-        file_type=document.file_type,
-        subject_id=document.subject_id,
+    content = await file.read()
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    return file_path
+
+
+async def get_doc(
+    file: UploadFile = File(...),
+    subject_id: int = Form(..., examples=[1, 2, 3, 4]),
+    title: str | None = Form(None),
+    file_type: FileType | None = Form(None),
+    keyword_ids: list[int] | None = Form(None, examples=[[1, 2]]),
+):
+    """依赖函数，解析文档上传的表单数据"""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="File name is required")
+
+    suffix = Path(file.filename).suffix[1:]
+    return DocCreate(
+        title=title or Path(file.filename).stem,
+        file_path=await save_uploaded_file(file),
+        file_type=file_type or FileType(suffix),
+        subject_id=subject_id,
+        keyword_ids=keyword_ids,
     )
 
-    # 处理文档文本
+
+async def get_docs(
+    files: list[UploadFile] = File(...),
+    subject_id: int = Form(..., examples=[1, 2, 3, 4]),
+    titles: list[str] | None = Form(None),
+    file_types: list[FileType] | None = Form(None),
+) -> list[DocCreate]:
+    if titles is not None and len(files) != len(titles):
+        raise HTTPException(status_code=400, detail="File and title count mismatch")
+
+    if file_types is not None and len(files) != len(file_types):
+        raise HTTPException(status_code=400, detail="File and file type count mismatch")
+
+    tasks = [
+        get_doc(
+            file=file,
+            title=titles[i] if titles is not None else None,
+            file_type=file_types[i] if file_types is not None else None,
+            subject_id=subject_id,
+            keyword_ids=None,
+        )
+        for i, file in enumerate(files)
+    ]
+
+    result = await asyncio.gather(*tasks)
+    return result
+
+
+async def create_doc_service(
+    doc: DocCreate,
+    db: Session,
+) -> DocUploadResult:
+    """创建文档"""
     try:
-        db_document.origin_text = extract_text(
-            file_path,
-            file_type=document.file_type,
-            ocr_engine=ocr_engine,
-            num_workers=num_workers,
-            force_ocr=force_ocr,
+        with transaction(db):
+            db_doc = Document(
+                **doc.model_dump(exclude={"keyword_ids"}, exclude_unset=True)
+            )
+
+            if doc.keyword_ids:
+                stmt = select(Keyword).where(Keyword.id.in_(doc.keyword_ids))
+                keywords = set(db.execute(stmt).scalars().all())
+                db_doc.keywords = keywords
+
+            db.add(db_doc)
+
+        db.refresh(db_doc)
+        return DocUploadResult(
+            success=True, document=cast(DocDetailResponse, db_doc), error=None
         )
-        db_document.processed_text = normalize_text(
-            db_document.origin_text,
-            char_threshold=char_threshold,
-            sentence_threshold=sentence_threshold,
+
+    except Exception as e:
+        if os.path.exists(doc.file_path):
+            os.remove(doc.file_path)
+        return DocUploadResult(success=False, document=None, error=str(e))
+
+
+async def create_docs_service(
+    docs: list[DocCreate],
+    db: Session,
+) -> list[DocUploadResult]:
+    """批量上传文档"""
+    tasks = [create_doc_service(doc, db) for doc in docs]
+
+    results = await asyncio.gather(*tasks)
+    return results
+
+
+async def extract_doc_text_service(
+    doc_id: int,
+    extract_config: ExtractConfig,
+    db: Session,
+) -> Document | None:
+    """提取文档文本"""
+    doc = await read_doc_service(doc_id, db)
+    if doc is None:
+        return None
+
+    try:
+        doc.origin_text = extract_text(
+            doc.file_path,
+            file_type=doc.file_type,
+            **extract_config.model_dump(),
         )
+        with transaction(db):
+            db.add(doc)
+
+        db.refresh(doc)
+        return doc
     except Exception as e:
         raise HTTPException(
-            status_code=400, detail=f"Text extraction failed: {str(e)}"
+            status_code=400, detail=f"Text extracting failed: {str(e)}"
         ) from e
 
-    db.add(db_document)
-    db.commit()
-    db.refresh(db_document)
 
-    return db_document
+async def normalize_doc_text_service(
+    doc_id: int,
+    normalize_config: NormalizeConfig,
+    db: Session,
+) -> Document | None:
+    """标准化文档文本"""
+    doc = await read_doc_service(doc_id, db)
+    if doc is None:
+        return None
+
+    doc.processed_text = normalize_text(
+        doc.origin_text,
+        **normalize_config.model_dump(),
+    )
+
+    with transaction(db):
+        db.add(doc)
+
+    db.refresh(doc)
+    return doc
 
 
-async def get_document(db: Session, document_id: int) -> Document | None:
+async def read_doc_service(
+    doc_id: int,
+    db: Session,
+) -> Document | None:
     """获取单个文档"""
-    stmt = select(Document).where(Document.id == document_id)
+    stmt = (
+        select(Document)
+        .where(Document.id == doc_id)
+        .options(selectinload(Document.keywords))
+    )
     result = db.execute(stmt)
     return result.scalar_one_or_none()
 
 
-async def get_documents(
+async def read_docs_service(
+    skip: int,
+    limit: int,
+    subject_id: int | None,
     db: Session,
-    skip: int = 0,
-    limit: int = 10,
-    subject_id: int | None = None,
 ) -> Sequence[Document]:
     """获取文档列表"""
-    stmt = select(Document)
+    stmt = select(Document).options(selectinload(Document.keywords))  # 预加载关键词
     if subject_id is not None:
         stmt = stmt.where(Document.subject_id == subject_id)
     stmt = stmt.offset(skip).limit(limit)
@@ -94,78 +209,51 @@ async def get_documents(
     return result.scalars().all()
 
 
-async def update_document(
-    db: Session, document_id: int, document_update: DocumentUpdate
+async def update_doc_service(
+    doc_id: int,
+    doc_update: DocUpdate,
+    db: Session,
 ) -> Document | None:
-    """更新文档"""
-    db_document = await get_document(db, document_id)
-    if db_document is not None:
-        update_data = document_update.model_dump(exclude_unset=True)
+    """更新文档信息，包括基本信息和关键词"""
+    doc = await read_doc_service(doc_id, db)
+    if doc is None:
+        return None
+
+    with transaction(db):
+        update_data = doc_update.model_dump(exclude={"keywords"}, exclude_unset=True)
         for key, value in update_data.items():
-            setattr(db_document, key, value)
-        db.commit()
-        db.refresh(db_document)
-    return db_document
+            setattr(doc, key, value)
+
+        if doc_update.keywords is not None:
+            keywords_update = doc_update.keywords
+
+            if keywords_update.add:
+                stmt = select(Keyword).where(Keyword.id.in_(keywords_update.add))
+                keywords_to_add = set(db.execute(stmt).scalars().all())
+                doc.keywords |= keywords_to_add
+
+            if keywords_update.remove:
+                stmt = select(Keyword).where(Keyword.id.in_(keywords_update.remove))
+                keywords_to_remove = set(db.execute(stmt).scalars().all())
+                doc.keywords -= keywords_to_remove
+
+        db.add(doc)
+
+    db.refresh(doc)
+    return doc
 
 
-async def delete_document(db: Session, document_id: int) -> bool:
+async def delete_doc_service(
+    doc_id: int,
+    db: Session,
+) -> bool:
     """删除文档"""
-    stmt = select(Document).where(Document.id == document_id)
-    db_document = db.execute(stmt).scalar_one_or_none()
-    if db_document is not None:
-        db.delete(db_document)
-        db.commit()
+    stmt = select(Document).where(Document.id == doc_id)
+    db_doc = db.execute(stmt).scalar_one_or_none()
+
+    if db_doc is not None:
+        with transaction(db):
+            db.delete(db_doc)
         return True
+
     return False
-
-
-async def reprocess_document_text(
-    db: Session,
-    document_id: int,
-    num_workers: int = 4,
-    ocr_engine: str = "cnocr",
-    force_ocr: bool = False,
-    char_threshold: int = 2,
-    sentence_threshold: float = 0.9,
-) -> Document | None:
-    """重新处理文档文本"""
-    document = await get_document(db, document_id)
-    if document is None:
-        return None
-
-    document.origin_text = extract_text(
-        document.file_path,
-        file_type=document.file_type,
-        ocr_engine=ocr_engine,
-        num_workers=num_workers,
-        force_ocr=force_ocr,
-    )
-    document.processed_text = normalize_text(
-        document.origin_text,
-        char_threshold=char_threshold,
-        sentence_threshold=sentence_threshold,
-    )
-    db.commit()
-    db.refresh(document)
-    return document
-
-
-async def renormalize_document_text(
-    db: Session,
-    document_id: int,
-    char_threshold: int = 2,
-    sentence_threshold: float = 0.9,
-) -> Document | None:
-    """重新清洗文档文本"""
-    document = await get_document(db, document_id)
-    if document is None:
-        return None
-
-    document.processed_text = normalize_text(
-        document.origin_text,
-        char_threshold=char_threshold,
-        sentence_threshold=sentence_threshold,
-    )
-    db.commit()
-    db.refresh(document)
-    return document

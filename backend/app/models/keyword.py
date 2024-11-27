@@ -25,7 +25,14 @@ class Keyword(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(nullable=False, unique=True)
 
-    documents: Mapped[list[Document]] = relationship(
-        secondary=document_keywords,
+    documents: Mapped[set[Document]] = relationship(
+        "Document",
+        secondary="document_keywords",
+        collection_class=set,
         back_populates="keywords",
     )
+
+    @property
+    def doc_count(self) -> int:
+        """获取使用该关键词的文档数量"""
+        return len(self.documents)
