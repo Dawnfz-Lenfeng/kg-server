@@ -38,6 +38,7 @@ def setup_test_db():
 
     engine.dispose()
     Base.metadata.drop_all(bind=engine)
+    engine.pool.dispose()
 
     if TEST_DB_PATH.exists():
         TEST_DB_PATH.unlink()
@@ -78,6 +79,7 @@ def pdf_file():
     pdf_path = SAMPLES_DIR / "sample.pdf"
     with pdf_path.open("rb") as f:
         content = f.read()
+
     file_like = BytesIO(content)
     yield UploadFile(file=BytesIO(content), filename="sample.pdf")
     file_like.close()
@@ -90,6 +92,7 @@ def pdf_files():
     with pdf_path.open("rb") as f:
         content = f.read()
 
+    file_like = BytesIO(content)
     files = [
         UploadFile(
             file=BytesIO(content),
@@ -99,8 +102,7 @@ def pdf_files():
     ]
 
     yield files
-    for file in files:
-        file.close()
+    file_like.close()
 
 
 @pytest_asyncio.fixture

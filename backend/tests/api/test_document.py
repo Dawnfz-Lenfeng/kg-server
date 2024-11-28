@@ -15,7 +15,7 @@ async def test_create_doc_api(
     """测试文档上传API"""
     response = await async_client.post(
         "/documents",
-        files={"file": pdf_file},
+        files={"file": (pdf_file.filename, await pdf_file.read())},
         data={"subject_id": 1, "keyword_ids": [k.id for k in sample_keywords[:2]]},
     )
 
@@ -23,12 +23,19 @@ async def test_create_doc_api(
     data = response.json()
     assert data["success"] is True
     assert data["document"]["title"] is not None
+    assert data["document"]["subject_id"] == 1
+
+    await async_client.delete(f"/documents/{data['document']['id']}")
 
 
 @pytest.mark.asyncio
 async def test_create_docs_api(async_client: AsyncClient, pdf_files: list[UploadFile]):
     """测试批量上传文档API"""
-    files = [("files", f) for f in pdf_files]
+    files = []
+    for f in pdf_files:
+        content = await f.read()
+        files.append(("files", (f.filename, content)))
+
     response = await async_client.post(
         "/documents/batch",
         files=files,
@@ -40,6 +47,9 @@ async def test_create_docs_api(async_client: AsyncClient, pdf_files: list[Upload
     assert isinstance(data, list)
     assert all(item["success"] for item in data)
     assert all(item["document"]["title"] for item in data)
+    
+    for item in data:
+        await async_client.delete(f"/documents/{item['document']['id']}")
 
 
 @pytest.mark.parametrize(
@@ -120,7 +130,7 @@ def test_update_doc_api(
 
     assert response.status_code == 200
     data = response.json()
-    
+
     keywords = data["keywords"]
     assert keywords
     keyword_ids = [keyword["id"] for keyword in keywords]
