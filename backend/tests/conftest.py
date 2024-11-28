@@ -78,7 +78,7 @@ async def sample_doc(db: Session, pdf_file: UploadFile, sample_keywords: list[Ke
         subject_id=1,
         keyword_ids=[k.id for k in sample_keywords[:2]],
     )
-    result = await create_doc_service(doc=doc, db=db)
-    assert result.success and result.document is not None
-    yield result.document
-    await delete_doc_service(doc_id=result.document.id, db=db)
+    document = create_doc_service(doc=doc, db=db)
+    assert document is not None
+    yield document
+    delete_doc_service(doc_id=document.id, db=db)
