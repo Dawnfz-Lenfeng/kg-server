@@ -52,7 +52,7 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.10"]
-        test-suite: ["preprocessing", "service", "api"]
+        test-suite: ["preprocessing", "services", "api"]
 
     steps:
     - uses: actions/checkout@v3
