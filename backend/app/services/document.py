@@ -248,15 +248,14 @@ async def delete_doc_service(
     db: Session,
 ) -> bool:
     """删除文档"""
-    stmt = select(Document).where(Document.id == doc_id)
-    db_doc = db.execute(stmt).scalar_one_or_none()
+    db_doc = await read_doc_service(doc_id, db)
 
-    if db_doc is not None:
-        if os.path.exists(db_doc.file_path):
-            os.remove(db_doc.file_path)
+    if db_doc is None:
+        return False
 
-        with transaction(db):
-            db.delete(db_doc)
-        return True
+    if os.path.exists(db_doc.file_path):
+        os.remove(db_doc.file_path)
 
-    return False
+    with transaction(db):
+        db.delete(db_doc)
+    return True
