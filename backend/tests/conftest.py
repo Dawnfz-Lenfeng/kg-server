@@ -1,9 +1,10 @@
 from pathlib import Path
+from io import BytesIO
 
 import pytest
 import pytest_asyncio
 from fastapi import UploadFile
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.database import Base, transaction
@@ -16,29 +17,40 @@ from app.services.document import (
 )
 
 SAMPLES_DIR = Path(__file__).parent / "samples"
+TEST_DB_PATH = Path(__file__).parent / "test.db"
+SQLALCHEMY_TEST_DATABASE_URL = f"sqlite:///{TEST_DB_PATH}"
+
+engine = create_engine(
+    SQLALCHEMY_TEST_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-@pytest.fixture(scope="session")
-def engine():
-    """创建内存数据库引擎"""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-    )
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_db():
+    """设置测试数据库"""
+    if TEST_DB_PATH.exists():
+        TEST_DB_PATH.unlink()
+
     Base.metadata.create_all(bind=engine)
-    return engine
+    yield
+
+    engine.dispose()
+    Base.metadata.drop_all(bind=engine)
+
+    if TEST_DB_PATH.exists():
+        TEST_DB_PATH.unlink()
 
 
 @pytest.fixture
-def db(engine: Engine):
-    """提供数据库会话"""
-    SessionLocal = sessionmaker(bind=engine)
-    session = SessionLocal()
+def db():
+    """创建测试数据库会话"""
+    db = TestingSessionLocal()
     try:
-        yield session
+        yield db
     finally:
-        session.rollback()
-        session.close()
+        db.close()
 
 
 @pytest.fixture
@@ -65,7 +77,30 @@ def pdf_file():
     """提供测试用PDF文件"""
     pdf_path = SAMPLES_DIR / "sample.pdf"
     with pdf_path.open("rb") as f:
-        yield UploadFile(file=f, filename="sample.pdf")
+        content = f.read()
+    file_like = BytesIO(content)
+    yield UploadFile(file=BytesIO(content), filename="sample.pdf")
+    file_like.close()
+
+
+@pytest.fixture
+def pdf_files():
+    """提供测试用PDF文件列表"""
+    pdf_path = SAMPLES_DIR / "sample.pdf"
+    with pdf_path.open("rb") as f:
+        content = f.read()
+
+    files = [
+        UploadFile(
+            file=BytesIO(content),
+            filename=f"sample{i}.pdf",
+        )
+        for i in range(3)
+    ]
+
+    yield files
+    for file in files:
+        file.close()
 
 
 @pytest_asyncio.fixture

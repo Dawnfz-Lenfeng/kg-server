@@ -100,7 +100,7 @@ def test_extract_doc_text(db: Session, sample_doc: Document, ocr_engine: OCREngi
     )
 
     assert doc is not None
-    assert doc.origin_text is not None
+    assert doc.raw_text is not None
 
 
 def test_normalize_doc_text(db: Session, sample_doc: Document):
@@ -118,4 +118,4 @@ def test_normalize_doc_text(db: Session, sample_doc: Document):
     )
 
     assert doc is not None
-    assert doc.processed_text is not None
+    assert doc.normalized_text is not None

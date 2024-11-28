@@ -51,8 +51,8 @@ class DocDetailResponse(DocResponse):
     """文档详细响应模型"""
 
     file_path: str = Field(..., description="文件路径")
-    origin_text: str | None = Field(None, description="原始文本内容")
-    processed_text: str | None = Field(None, description="处理后的文本内容")
+    raw_text: str | None = Field(None, description="原始文本内容")
+    normalized_text: str | None = Field(None, description="处理后的文本内容")
 
 
 class DocUploadResult(BaseModel):
