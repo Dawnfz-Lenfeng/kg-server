@@ -13,13 +13,7 @@ from ..database import transaction
 from ..models.document import Document
 from ..models.keyword import Keyword
 from ..preprocessing import extract_text, normalize_text
-from ..schemas.document import (
-    DocCreate,
-    DocDetailResponse,
-    DocUpdate,
-    DocUploadResult,
-    FileType,
-)
+from ..schemas.document import DocCreate, DocUpdate, FileType
 from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
 
 
@@ -91,10 +85,10 @@ async def get_docs(
     return result
 
 
-async def create_doc_service(
+def create_doc_service(
     doc: DocCreate,
     db: Session,
-) -> DocUploadResult:
+) -> Document | None:
     """创建文档"""
     try:
         with transaction(db):
@@ -110,34 +104,21 @@ async def create_doc_service(
             db.add(db_doc)
 
         db.refresh(db_doc)
-        return DocUploadResult(
-            success=True, document=cast(DocDetailResponse, db_doc), error=None
-        )
+        return db_doc
 
     except Exception as e:
         if os.path.exists(doc.file_path):
             os.remove(doc.file_path)
-        return DocUploadResult(success=False, document=None, error=str(e))
+        raise e
 
 
-async def create_docs_service(
-    docs: list[DocCreate],
-    db: Session,
-) -> list[DocUploadResult]:
-    """批量上传文档"""
-    tasks = [create_doc_service(doc, db) for doc in docs]
-
-    results = await asyncio.gather(*tasks)
-    return results
-
-
-async def extract_doc_text_service(
+def extract_doc_text_service(
     doc_id: int,
     extract_config: ExtractConfig,
     db: Session,
 ) -> Document | None:
     """提取文档文本"""
-    doc = await read_doc_service(doc_id, db)
+    doc = read_doc_service(doc_id, db)
     if doc is None:
         return None
 
@@ -158,13 +139,13 @@ async def extract_doc_text_service(
         ) from e
 
 
-async def normalize_doc_text_service(
+def normalize_doc_text_service(
     doc_id: int,
     normalize_config: NormalizeConfig,
     db: Session,
 ) -> Document | None:
     """标准化文档文本"""
-    doc = await read_doc_service(doc_id, db)
+    doc = read_doc_service(doc_id, db)
     if doc is None:
         return None
 
@@ -180,7 +161,7 @@ async def normalize_doc_text_service(
     return doc
 
 
-async def read_doc_service(
+def read_doc_service(
     doc_id: int,
     db: Session,
 ) -> Document | None:
@@ -194,7 +175,7 @@ async def read_doc_service(
     return result.scalar_one_or_none()
 
 
-async def read_docs_service(
+def read_docs_service(
     skip: int,
     limit: int,
     subject_id: int | None,
@@ -209,13 +190,13 @@ async def read_docs_service(
     return result.scalars().all()
 
 
-async def update_doc_service(
+def update_doc_service(
     doc_id: int,
     doc_update: DocUpdate,
     db: Session,
 ) -> Document | None:
     """更新文档信息，包括基本信息和关键词"""
-    doc = await read_doc_service(doc_id, db)
+    doc = read_doc_service(doc_id, db)
     if doc is None:
         return None
 
@@ -243,12 +224,12 @@ async def update_doc_service(
     return doc
 
 
-async def delete_doc_service(
+def delete_doc_service(
     doc_id: int,
     db: Session,
 ) -> bool:
     """删除文档"""
-    db_doc = await read_doc_service(doc_id, db)
+    db_doc = read_doc_service(doc_id, db)
 
     if db_doc is None:
         return False
