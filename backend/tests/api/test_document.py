@@ -47,7 +47,7 @@ async def test_create_docs_api(async_client: AsyncClient, pdf_files: list[Upload
     assert isinstance(data, list)
     assert all(item["success"] for item in data)
     assert all(item["document"]["title"] for item in data)
-    
+
     for item in data:
         await async_client.delete(f"/documents/{item['document']['id']}")
 
