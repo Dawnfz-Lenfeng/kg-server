@@ -252,6 +252,9 @@ async def delete_doc_service(
     db_doc = db.execute(stmt).scalar_one_or_none()
 
     if db_doc is not None:
+        if os.path.exists(db_doc.file_path):
+            os.remove(db_doc.file_path)
+
         with transaction(db):
             db.delete(db_doc)
         return True

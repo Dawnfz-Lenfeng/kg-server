@@ -1,7 +1,4 @@
-from pathlib import Path
-
 import pytest
-import pytest_asyncio
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
@@ -20,51 +17,6 @@ from app.services.document import (
     save_uploaded_file,
     update_doc_service,
 )
-
-SAMPLES_DIR = Path(__file__).parent.parent / "samples"
-
-
-@pytest.fixture
-def sample_keywords(db: Session):
-    """创建测试用关键词"""
-    keywords = [
-        Keyword(name="测试关键词1"),
-        Keyword(name="测试关键词2"),
-        Keyword(name="测试关键词3"),
-    ]
-    for kw in keywords:
-        db.add(kw)
-    db.commit()
-    for kw in keywords:
-        db.refresh(kw)
-    yield keywords
-    for kw in keywords:
-        db.delete(kw)
-    db.commit()
-
-
-@pytest.fixture
-def pdf_file():
-    """提供测试用PDF文件"""
-    pdf_path = SAMPLES_DIR / "sample.pdf"
-    with pdf_path.open("rb") as f:
-        yield UploadFile(file=f, filename="sample.pdf")
-
-
-@pytest_asyncio.fixture
-async def sample_doc(db: Session, pdf_file: UploadFile, sample_keywords: list[Keyword]):
-    """创建测试文档"""
-    doc = DocCreate(
-        title="测试文档",
-        file_path=await save_uploaded_file(file=pdf_file),
-        file_type="pdf",
-        subject_id=1,
-        keyword_ids=[k.id for k in sample_keywords[:2]],
-    )
-    result = await create_doc_service(doc=doc, db=db)
-    assert result.success and result.document is not None
-    yield result.document
-    await delete_doc_service(doc_id=result.document.id, db=db)
 
 
 @pytest.mark.asyncio
@@ -95,6 +47,8 @@ async def test_create_doc(
     assert sample_keywords[0].id in keyword_ids
     assert sample_keywords[1].id in keyword_ids
 
+    await delete_doc_service(doc_id=doc.id, db=db)
+
 
 @pytest.mark.asyncio
 async def test_batch_create_docs(
@@ -119,7 +73,6 @@ async def test_batch_create_docs(
     assert all(r.document is not None for r in results)
     assert all(r.error is None for r in results)
 
-    # 清理测试数据
     for result in results:
         if result.document:
             await delete_doc_service(doc_id=result.document.id, db=db)
@@ -171,7 +124,6 @@ async def test_delete_doc(db: Session, sample_doc: Document):
     result = await delete_doc_service(doc_id=sample_doc.id, db=db)
     assert result is True
 
-    # 验证确实被删除了
     doc = await read_doc_service(doc_id=sample_doc.id, db=db)
     assert doc is None
 
@@ -196,14 +148,12 @@ async def test_extract_doc_text(
 @pytest.mark.asyncio
 async def test_normalize_doc_text(db: Session, sample_doc: Document):
     """测试清洗文档文本"""
-    # 先提取文本
     await extract_doc_text_service(
         doc_id=sample_doc.id,
         extract_config=ExtractConfig(),
         db=db,
     )
 
-    # 再清洗文本
     config = NormalizeConfig(char_threshold=2)
     doc = await normalize_doc_text_service(
         doc_id=sample_doc.id,

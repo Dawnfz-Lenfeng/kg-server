@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import models
+from .api import api_router
 from .config import settings
 from .database import Base, engine
 
@@ -20,9 +21,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# 导入路由
-from .api import api_router
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
