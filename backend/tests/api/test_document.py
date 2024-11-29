@@ -96,7 +96,7 @@ def test_read_doc_api(client: TestClient, sample_doc: Document):
     assert data["title"] == sample_doc.title
 
 
-def test_read_docs_api(client: TestClient):
+def test_read_docs_api(client: TestClient, sample_doc: Document):
     """测试获取文档列表API"""
     response = client.get("/documents?skip=0&limit=10")
 
