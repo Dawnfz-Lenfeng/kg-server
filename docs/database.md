@@ -33,7 +33,7 @@ docker-compose exec db psql -U dev_user -d ckgcus
 ## 数据库结构
 
 ### 文档表 (documents)
-| 字段 | 类型 | 说明 |
+| 字段 | 类型 | 说明 | 是否可以为空 |
 |------|------|------|
 |id|int|文档编号；主键|
 |title|str|文档标题|
