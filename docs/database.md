@@ -221,7 +221,7 @@ def upgrade():
     
     # 数据迁移示例
     op.execute(
-        "UPDATE documents SET status = 'published' WHERE processed_text IS NOT NULL"
+        "UPDATE documents SET status = 'published' WHERE normalized_text IS NOT NULL"
     )
 
 def downgrade():

@@ -16,7 +16,8 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE: int = 20 * 1024 * 1024  # 20MB
 
     # 开发模式配置
-    DEV_MODE: bool = False
+    DEV_MODE: bool = True
+    TESTING: bool = False
 
     model_config = SettingsConfigDict(
         env_file=".env",

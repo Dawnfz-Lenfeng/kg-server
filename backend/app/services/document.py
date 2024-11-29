@@ -123,7 +123,7 @@ def extract_doc_text_service(
         return None
 
     try:
-        doc.origin_text = extract_text(
+        doc.raw_text = extract_text(
             doc.file_path,
             file_type=doc.file_type,
             **extract_config.model_dump(),
@@ -149,8 +149,8 @@ def normalize_doc_text_service(
     if doc is None:
         return None
 
-    doc.processed_text = normalize_text(
-        doc.origin_text,
+    doc.normalized_text = normalize_text(
+        doc.raw_text,
         **normalize_config.model_dump(),
     )
 
