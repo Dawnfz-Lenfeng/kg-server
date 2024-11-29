@@ -4,6 +4,9 @@ from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
 from app.config import settings
+
+settings.TESTING = True
+
 from app.database import get_db
 from app.main import app
 

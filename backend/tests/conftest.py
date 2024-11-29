@@ -30,6 +30,8 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_db():
     """设置测试数据库"""
+    from app import models
+
     if TEST_DB_PATH.exists():
         TEST_DB_PATH.unlink()
 
