@@ -1,22 +1,11 @@
 from fastapi import APIRouter, Body, Depends, HTTPException
-from sqlalchemy.orm import Session
 
 from app.schemas.document import DocUploadResult
+from app.services import DocService
 
-from ..database import get_db
+from ..dependencies.documents import get_doc, get_doc_svc, get_docs
 from ..schemas.document import DocCreate, DocDetailResponse, DocResponse, DocUpdate
 from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
-from ..services.document import (
-    create_doc_service,
-    delete_doc_service,
-    extract_doc_text_service,
-    get_doc,
-    get_docs,
-    normalize_doc_text_service,
-    read_doc_service,
-    read_docs_service,
-    update_doc_service,
-)
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -24,11 +13,11 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 @router.post("", response_model=DocUploadResult)
 async def create_doc(
     doc: DocCreate = Depends(get_doc),
-    db: Session = Depends(get_db),
+    doc_svc: DocService = Depends(get_doc_svc),
 ) -> DocUploadResult:
     """上传文档"""
     try:
-        document = create_doc_service(doc, db)
+        document = doc_svc.create_doc(doc)
         return DocUploadResult(
             success=True,
             document=DocDetailResponse.model_validate(document),
@@ -41,13 +30,13 @@ async def create_doc(
 @router.post("/batch", response_model=list[DocUploadResult])
 async def create_docs(
     docs: list[DocCreate] = Depends(get_docs),
-    db: Session = Depends(get_db),
+    doc_svc: DocService = Depends(get_doc_svc),
 ) -> list[DocUploadResult]:
     """批量上传文档"""
     results = []
     for doc in docs:
         try:
-            document = create_doc_service(doc, db)
+            document = doc_svc.create_doc(doc)
             results.append(
                 DocUploadResult(
                     success=True,
@@ -64,30 +53,30 @@ async def create_docs(
 def extract_doc_text(
     doc_id: int,
     extract_config: ExtractConfig = Body(default=ExtractConfig()),
-    db: Session = Depends(get_db),
+    doc_svc: DocService = Depends(get_doc_svc),
 ):
     """提取文档文本"""
-    return extract_doc_text_service(doc_id, extract_config, db)
+    return doc_svc.extract_doc_text(doc_id, extract_config)
 
 
 @router.put("/{doc_id}/normalize", response_model=DocDetailResponse)
 def normalize_doc_text(
     doc_id: int,
     normalize_config: NormalizeConfig = Body(default=NormalizeConfig()),
-    db: Session = Depends(get_db),
+    doc_svc: DocService = Depends(get_doc_svc),
 ):
     """清洗文档文本"""
-    return normalize_doc_text_service(doc_id, normalize_config, db)
+    return doc_svc.normalize_doc_text(doc_id, normalize_config)
 
 
 @router.put("/{doc_id}", response_model=DocResponse)
 def update_doc(
     doc_id: int,
     doc: DocUpdate,
-    db: Session = Depends(get_db),
+    doc_svc: DocService = Depends(get_doc_svc),
 ):
     """更新文档"""
-    updated = update_doc_service(doc_id, doc, db)
+    updated = doc_svc.update_doc(doc_id, doc)
     if updated is None:
         raise HTTPException(status_code=404, detail="Document not found")
     return updated
@@ -96,10 +85,10 @@ def update_doc(
 @router.get("/{doc_id}", response_model=DocDetailResponse)
 def read_doc(
     doc_id: int,
-    db: Session = Depends(get_db),
+    doc_svc: DocService = Depends(get_doc_svc),
 ):
     """获取文档"""
-    doc = read_doc_service(doc_id, db)
+    doc = doc_svc.read_doc(doc_id)
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
     return doc
@@ -110,18 +99,18 @@ def read_docs(
     skip: int = 0,
     limit: int = 10,
     subject_id: int | None = None,
-    db: Session = Depends(get_db),
+    doc_svc: DocService = Depends(get_doc_svc),
 ):
     """获取文档列表"""
-    return read_docs_service(skip, limit, subject_id, db)
+    return doc_svc.read_docs(skip, limit, subject_id)
 
 
 @router.delete("/{doc_id}")
 def delete_doc(
     doc_id: int,
-    db: Session = Depends(get_db),
+    doc_svc: DocService = Depends(get_doc_svc),
 ):
     """删除文档"""
-    if not delete_doc_service(doc_id, db):
+    if not doc_svc.delete_doc(doc_id):
         raise HTTPException(status_code=404, detail="Document not found")
     return {"message": "Document deleted"}

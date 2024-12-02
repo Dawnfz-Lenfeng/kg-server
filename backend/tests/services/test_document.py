@@ -1,36 +1,26 @@
 import pytest
-from fastapi import UploadFile
-from sqlalchemy.orm import Session
 
-from app.models.document import Document
-from app.models.keyword import Keyword
+from app.models import Document, Keyword
 from app.schemas.base import SetOperation
 from app.schemas.document import DocCreate, DocUpdate
 from app.schemas.preprocessing import ExtractConfig, NormalizeConfig, OCREngine
-from app.services.document import (
-    create_doc_service,
-    delete_doc_service,
-    extract_doc_text_service,
-    normalize_doc_text_service,
-    read_doc_service,
-    save_uploaded_file,
-    update_doc_service,
-)
+from app.services import DocService
 
 
-@pytest.mark.asyncio
-async def test_create_doc(
-    db: Session, pdf_file: UploadFile, sample_keywords: list[Keyword]
+def test_create_doc(
+    sample_keywords: list[Keyword],
+    uploaded_file_path: str,
+    doc_svc: DocService,
 ):
     """测试创建文档"""
     doc_create = DocCreate(
         title="新建文档",
-        file_path=await save_uploaded_file(file=pdf_file),
+        file_path=uploaded_file_path,
         file_type="pdf",
         subject_id=1,
         keyword_ids=[sample_keywords[0].id, sample_keywords[1].id],
     )
-    doc = create_doc_service(doc=doc_create, db=db)
+    doc = doc_svc.create_doc(doc=doc_create)
 
     assert doc.id is not None
     assert doc.title == "新建文档"
@@ -41,12 +31,12 @@ async def test_create_doc(
     assert sample_keywords[0].id in keyword_ids
     assert sample_keywords[1].id in keyword_ids
 
-    delete_doc_service(doc_id=doc.id, db=db)
+    doc_svc.delete_doc(doc_id=doc.id)
 
 
-def test_read_doc(db: Session, sample_doc: Document):
+def test_read_doc(sample_doc: Document, doc_svc: DocService):
     """测试读取单个文档"""
-    doc = read_doc_service(doc_id=sample_doc.id, db=db)
+    doc = doc_svc.read_doc(doc_id=sample_doc.id)
 
     assert doc is not None
     assert doc.id == sample_doc.id
@@ -55,7 +45,11 @@ def test_read_doc(db: Session, sample_doc: Document):
     assert len(doc.keywords) == 2
 
 
-def test_update_doc(db: Session, sample_doc: Document, sample_keywords: list[Keyword]):
+def test_update_doc(
+    sample_doc: Document,
+    sample_keywords: list[Keyword],
+    doc_svc: DocService,
+):
     """测试修改文档"""
     new_title = "更新后的标题"
     keywords_update = SetOperation(
@@ -63,10 +57,9 @@ def test_update_doc(db: Session, sample_doc: Document, sample_keywords: list[Key
         remove=[sample_keywords[0].id],  # 移除第一个关键词
     )
 
-    updated = update_doc_service(
+    updated = doc_svc.update_doc(
         doc_id=sample_doc.id,
         doc_update=DocUpdate(title=new_title, keywords=keywords_update),
-        db=db,
     )
 
     assert updated is not None
@@ -80,41 +73,36 @@ def test_update_doc(db: Session, sample_doc: Document, sample_keywords: list[Key
     assert sample_keywords[0].id not in keyword_ids  # 已移除的关键词
 
 
-def test_delete_doc(db: Session, sample_doc: Document):
+def test_delete_doc(sample_doc: Document, doc_svc: DocService):
     """测试删除文档"""
-    result = delete_doc_service(doc_id=sample_doc.id, db=db)
+    result = doc_svc.delete_doc(doc_id=sample_doc.id)
     assert result is True
 
-    doc = read_doc_service(doc_id=sample_doc.id, db=db)
+    doc = doc_svc.read_doc(doc_id=sample_doc.id)
     assert doc is None
 
 
 @pytest.mark.parametrize("ocr_engine", list(OCREngine))
-def test_extract_doc_text(db: Session, sample_doc: Document, ocr_engine: OCREngine):
+def test_extract_doc_text(
+    sample_doc: Document, ocr_engine: OCREngine, doc_svc: DocService
+):
     """测试提取文档文本"""
     config = ExtractConfig(ocr_engine=ocr_engine, force_ocr=True)
-    doc = extract_doc_text_service(
+    doc = doc_svc.extract_doc_text(
         doc_id=sample_doc.id,
         extract_config=config,
-        db=db,
     )
 
     assert doc is not None
     assert doc.raw_text is not None
 
 
-def test_normalize_doc_text(db: Session, sample_doc: Document):
+def test_normalize_doc_text(sample_doc: Document, doc_svc: DocService):
     """测试清洗文档文本"""
-    extract_doc_text_service(
-        doc_id=sample_doc.id,
-        extract_config=ExtractConfig(),
-        db=db,
-    )
+    doc_svc.extract_doc_text(doc_id=sample_doc.id, extract_config=ExtractConfig())
 
-    doc = normalize_doc_text_service(
-        doc_id=sample_doc.id,
-        normalize_config=NormalizeConfig(),
-        db=db,
+    doc = doc_svc.normalize_doc_text(
+        doc_id=sample_doc.id, normalize_config=NormalizeConfig()
     )
 
     assert doc is not None
