@@ -2,6 +2,7 @@ import os
 from contextlib import contextmanager
 from typing import Sequence
 
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -18,20 +19,23 @@ class DocService:
 
     def create_doc(self, doc: DocCreate) -> Document:
         """创建文档"""
-        with transaction(self.db):
-            db_doc = Document(
-                **doc.model_dump(exclude={"keyword_ids"}, exclude_unset=True)
-            )
+        db_doc = Document(**doc.model_dump(exclude={"keyword_ids"}, exclude_unset=True))
+        try:
+            with transaction(self.db):
+                if doc.keyword_ids:
+                    stmt = select(Keyword).where(Keyword.id.in_(doc.keyword_ids))
+                    keywords = set(self.db.execute(stmt).scalars().all())
+                    db_doc.keywords = keywords
 
-            if doc.keyword_ids:
-                stmt = select(Keyword).where(Keyword.id.in_(doc.keyword_ids))
-                keywords = set(self.db.execute(stmt).scalars().all())
-                db_doc.keywords = keywords
+                self.db.add(db_doc)
 
-            self.db.add(db_doc)
-
-        self.db.refresh(db_doc)
-        return db_doc
+            self.db.refresh(db_doc)
+            return db_doc
+        except Exception as e:
+            file_path = self._get_text_path(db_doc, DocStage.UPLOAD)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            raise e
 
     def extract_doc_text(
         self, doc_id: int, extract_config: ExtractConfig
