@@ -184,7 +184,7 @@ class DocService:
                 if stage == DocStage.NORMALIZED:
                     with open(file_path, "r", encoding="utf-8") as f:
                         text = f.read()
-                        doc.word_count = len(text.split())
+                        doc.word_count = len(text)
 
     def _get_text_path(self, doc: Document, stage: DocStage) -> str:
         return f"{stage.storage_dir}/{doc.file_name}"
