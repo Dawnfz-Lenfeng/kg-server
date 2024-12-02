@@ -1,11 +1,15 @@
-from fastapi import APIRouter, Body, Depends, HTTPException
-
-from app.schemas.document import DocUploadResult
-from app.services import DocService
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from ..dependencies.documents import get_doc, get_doc_svc, get_docs
-from ..schemas.document import DocCreate, DocDetailResponse, DocResponse, DocUpdate
+from ..schemas.document import (
+    DocCreate,
+    DocResponse,
+    DocStage,
+    DocUpdate,
+    DocUploadResult,
+)
 from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
+from ..services import DocService
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -20,7 +24,7 @@ async def create_doc(
         document = doc_svc.create_doc(doc)
         return DocUploadResult(
             success=True,
-            document=DocDetailResponse.model_validate(document),
+            document=DocResponse.model_validate(document),
             error=None,
         )
     except Exception as e:
@@ -40,7 +44,7 @@ async def create_docs(
             results.append(
                 DocUploadResult(
                     success=True,
-                    document=DocDetailResponse.model_validate(document),
+                    document=DocResponse.model_validate(document),
                     error=None,
                 )
             )
@@ -49,7 +53,7 @@ async def create_docs(
     return results
 
 
-@router.put("/{doc_id}/extract", response_model=DocDetailResponse)
+@router.put("/{doc_id}/extract", response_model=DocResponse)
 def extract_doc_text(
     doc_id: int,
     extract_config: ExtractConfig = Body(default=ExtractConfig()),
@@ -59,7 +63,7 @@ def extract_doc_text(
     return doc_svc.extract_doc_text(doc_id, extract_config)
 
 
-@router.put("/{doc_id}/normalize", response_model=DocDetailResponse)
+@router.put("/{doc_id}/normalize", response_model=DocResponse)
 def normalize_doc_text(
     doc_id: int,
     normalize_config: NormalizeConfig = Body(default=NormalizeConfig()),
@@ -82,7 +86,7 @@ def update_doc(
     return updated
 
 
-@router.get("/{doc_id}", response_model=DocDetailResponse)
+@router.get("/{doc_id}", response_model=DocResponse)
 def read_doc(
     doc_id: int,
     doc_svc: DocService = Depends(get_doc_svc),
@@ -92,6 +96,17 @@ def read_doc(
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
     return doc
+
+
+@router.get("/{doc_id}/text")
+def read_doc_text(
+    doc_id: int,
+    normalized: bool = Query(True, description="是否获取标准化文本"),
+    doc_svc: DocService = Depends(get_doc_svc),
+) -> str | None:
+    """获取文档文本内容"""
+    stage = DocStage.NORMALIZED if normalized else DocStage.EXTRACTED
+    return doc_svc.read_doc_text(doc_id, stage)
 
 
 @router.get("", response_model=list[DocResponse])

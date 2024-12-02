@@ -69,21 +69,28 @@ def test_extract_doc_text_api(
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == sample_doc.id
-    assert data["raw_text"] is not None
+    assert data["is_extracted"]
 
 
 def test_normalize_doc_text_api(client: TestClient, sample_doc: Document):
     """测试文档文本清洗API"""
-    config = NormalizeConfig()
+    extract_config = ExtractConfig(last_page=1)
 
     response = client.put(
-        f"/documents/{sample_doc.id}/normalize", json=config.model_dump()
+        f"/documents/{sample_doc.id}/extract", json=extract_config.model_dump()
+    )
+    assert response.status_code == 200
+
+    normalize_config = NormalizeConfig()
+
+    response = client.put(
+        f"/documents/{sample_doc.id}/normalize", json=normalize_config.model_dump()
     )
 
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == sample_doc.id
-    assert data["normalized_text"] is not None
+    assert data["is_normalized"]
 
 
 def test_read_doc_api(client: TestClient, sample_doc: Document):

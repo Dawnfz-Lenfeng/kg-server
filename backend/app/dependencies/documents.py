@@ -30,7 +30,7 @@ async def get_doc(
     suffix = Path(file.filename).suffix[1:]
     return DocCreate(
         title=title or Path(file.filename).stem,
-        file_path=await _save_uploaded_file(file),
+        file_name=await _save_uploaded_file(file),
         file_type=file_type or FileType(suffix),
         subject_id=subject_id,
         keyword_ids=keyword_ids,
@@ -66,15 +66,15 @@ async def get_docs(
 
 async def _save_uploaded_file(file: UploadFile) -> str:
     """保存上传的文件到指定目录"""
-    unique_filename = _get_unique_filename(cast(str, file.filename))
-    file_path = os.path.join(settings.UPLOAD_DIR, unique_filename)
+    file_name = _get_unique_filename(cast(str, file.filename))
+    file_path = os.path.join(settings.UPLOAD_DIR, file_name)
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 
     content = await file.read()
     with open(file_path, "wb") as f:
         f.write(content)
 
-    return file_path
+    return file_name
 
 
 def _get_unique_filename(original_name: str) -> str:

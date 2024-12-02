@@ -12,8 +12,10 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://dev_user:dev_password@localhost:5432/ckgcus"
 
     # 文件存储配置
-    UPLOAD_DIR: str = "uploads"
-    MAX_FILE_SIZE: int = 20 * 1024 * 1024  # 20MB
+    STORAGE_DIR: str = "storage"
+    UPLOAD_DIR: str = f"{STORAGE_DIR}/uploads"
+    RAW_TEXT_DIR: str = f"{STORAGE_DIR}/texts/raw"
+    NORM_TEXT_DIR: str = f"{STORAGE_DIR}/texts/normalized"
 
     # 开发模式配置
     DEV_MODE: bool = True

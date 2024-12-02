@@ -13,7 +13,7 @@ build/
 *.egg-info/
 
 # Database
-uploads/
+storage/
 *.db
 
 # Alembic

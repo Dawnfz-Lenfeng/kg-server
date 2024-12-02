@@ -110,7 +110,7 @@ def pdf_files():
 
 
 @pytest_asyncio.fixture
-async def uploaded_file_path(pdf_file: UploadFile) -> str:
+async def uploaded_file_name(pdf_file: UploadFile) -> str:
     from app.dependencies.documents import _save_uploaded_file
 
     return await _save_uploaded_file(file=pdf_file)
@@ -119,13 +119,13 @@ async def uploaded_file_path(pdf_file: UploadFile) -> str:
 @pytest.fixture
 def sample_doc(
     sample_keywords: list[Keyword],
-    uploaded_file_path: str,
+    uploaded_file_name: str,
     doc_svc: DocService,
 ):
     """创建测试文档"""
     doc = DocCreate(
         title="测试文档",
-        file_path=uploaded_file_path,
+        file_name=uploaded_file_name,
         file_type="pdf",
         subject_id=1,
         keyword_ids=[k.id for k in sample_keywords[:2]],

@@ -9,13 +9,13 @@ from app.services import DocService
 
 def test_create_doc(
     sample_keywords: list[Keyword],
-    uploaded_file_path: str,
+    uploaded_file_name: str,
     doc_svc: DocService,
 ):
     """测试创建文档"""
     doc_create = DocCreate(
         title="新建文档",
-        file_path=uploaded_file_path,
+        file_name=uploaded_file_name,
         file_type="pdf",
         subject_id=1,
         keyword_ids=[sample_keywords[0].id, sample_keywords[1].id],
@@ -94,7 +94,7 @@ def test_extract_doc_text(
     )
 
     assert doc is not None
-    assert doc.raw_text is not None
+    assert doc.is_extracted
 
 
 def test_normalize_doc_text(sample_doc: Document, doc_svc: DocService):
@@ -106,4 +106,4 @@ def test_normalize_doc_text(sample_doc: Document, doc_svc: DocService):
     )
 
     assert doc is not None
-    assert doc.normalized_text is not None
+    assert doc.is_normalized
