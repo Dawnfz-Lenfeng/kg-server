@@ -8,13 +8,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.database import Base, transaction
-from app.models.keyword import Keyword
+from app.models import Keyword
 from app.schemas.document import DocCreate
-from app.services.document import (
-    create_doc_service,
-    delete_doc_service,
-    save_uploaded_file,
-)
+from app.services import DocService
 
 SAMPLES_DIR = Path(__file__).parent / "samples"
 TEST_DB_PATH = Path(__file__).parent / "test.db"
@@ -54,6 +50,12 @@ def db():
         yield db
     finally:
         db.close()
+
+
+@pytest.fixture
+def doc_svc(db: Session):
+    """创建文档服务实例"""
+    return DocService(db)
 
 
 @pytest.fixture
@@ -108,16 +110,27 @@ def pdf_files():
 
 
 @pytest_asyncio.fixture
-async def sample_doc(db: Session, pdf_file: UploadFile, sample_keywords: list[Keyword]):
+async def uploaded_file_path(pdf_file: UploadFile) -> str:
+    from app.dependencies.documents import _save_uploaded_file
+
+    return await _save_uploaded_file(file=pdf_file)
+
+
+@pytest.fixture
+def sample_doc(
+    sample_keywords: list[Keyword],
+    uploaded_file_path: str,
+    doc_svc: DocService,
+):
     """创建测试文档"""
     doc = DocCreate(
         title="测试文档",
-        file_path=await save_uploaded_file(file=pdf_file),
+        file_path=uploaded_file_path,
         file_type="pdf",
         subject_id=1,
         keyword_ids=[k.id for k in sample_keywords[:2]],
     )
-    document = create_doc_service(doc=doc, db=db)
+    document = doc_svc.create_doc(doc)
     assert document is not None
     yield document
-    delete_doc_service(doc_id=document.id, db=db)
+    doc_svc.delete_doc(document.id)
