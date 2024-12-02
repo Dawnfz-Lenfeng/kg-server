@@ -32,7 +32,7 @@ async def create_keyword_service(
     return db_keyword
 
 
-async def read_keyword_service(
+def read_keyword_service(
     keyword_id: int,
     db: Session,
 ) -> Keyword | None:
@@ -42,7 +42,7 @@ async def read_keyword_service(
     return result.scalar_one_or_none()
 
 
-async def read_keyword_by_name_service(
+def read_keyword_by_name_service(
     name: str,
     db: Session,
 ) -> Keyword | None:
@@ -52,7 +52,7 @@ async def read_keyword_by_name_service(
     return result.scalar_one_or_none()
 
 
-async def read_keywords_service(
+def read_keywords_service(
     skip: int,
     limit: int,
     search: str | None,
