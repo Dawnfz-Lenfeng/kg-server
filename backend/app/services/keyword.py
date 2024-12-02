@@ -70,7 +70,7 @@ def read_keywords_service(
 async def update_keyword_service(
     keyword_id: int,
     keyword_update: KeywordUpdate,
-    db: AsyncSession,
+    db:Session,
 ) -> Keyword | None:
     """更新关键词"""
     db_keyword = read_keyword_service(keyword_id, db)
