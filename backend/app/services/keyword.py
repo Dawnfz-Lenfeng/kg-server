@@ -15,7 +15,7 @@ async def create_keyword_service(
     db: Session,
 ) -> Keyword:
     """创建关键词"""
-    existing = await read_keyword_by_name_service(keyword.name, db)
+    existing = read_keyword_by_name_service(keyword.name, db)
     if existing:
         raise HTTPException(status_code=400, detail=f"关键词 '{keyword.name}' 已存在")
 
@@ -70,16 +70,16 @@ def read_keywords_service(
 async def update_keyword_service(
     keyword_id: int,
     keyword_update: KeywordUpdate,
-    db: Session,
+    db: AsyncSession,
 ) -> Keyword | None:
     """更新关键词"""
-    db_keyword = await read_keyword_service(keyword_id, db)
+    db_keyword = read_keyword_service(keyword_id, db)
     if db_keyword is None:
         return None
 
     with transaction(db):
         if keyword_update.name and keyword_update.name != db_keyword.name:
-            existing = await read_keyword_by_name_service(keyword_update.name, db)
+            existing = read_keyword_by_name_service(keyword_update.name, db)
             if existing:
                 raise HTTPException(
                     status_code=400, detail=f"关键词 '{keyword_update.name}' 已存在"
@@ -112,7 +112,7 @@ async def delete_keyword_service(
     db: Session,
 ) -> bool:
     """删除关键词"""
-    db_keyword = await read_keyword_service(keyword_id, db)
+    db_keyword = read_keyword_service(keyword_id, db)
     if db_keyword is not None:
         with transaction(db):
             db.delete(db_keyword)

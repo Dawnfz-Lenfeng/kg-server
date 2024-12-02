@@ -34,7 +34,7 @@ async def read_keyword(
     db: Session = Depends(get_db),
 ):
     """获取关键词"""
-    keyword = await read_keyword_service(keyword_id, db)
+    keyword = read_keyword_service(keyword_id, db)
     if keyword is None:
         raise HTTPException(status_code=404, detail="Keyword not found")
     return keyword
@@ -48,7 +48,7 @@ async def read_keywords(
     db: Session = Depends(get_db),
 ):
     """获取关键词列表"""
-    return await read_keywords_service(skip, limit, search, db)
+    return read_keywords_service(skip, limit, search, db)
 
 
 @router.put("/{keyword_id}", response_model=KeywordDetailResponse)
