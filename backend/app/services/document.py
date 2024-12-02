@@ -2,7 +2,6 @@ import os
 from contextlib import contextmanager
 from typing import Sequence
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
