@@ -64,6 +64,6 @@ async def delete_keyword(
     kw_svc: KeywordService = Depends(get_kw_svc),
 ):
     """删除关键词"""
-    if not await kw_svc.delete_keyword(keyword_id):
+    if not kw_svc.delete_keyword(keyword_id):
         raise HTTPException(status_code=404, detail="Keyword not found")
     return {"message": "Keyword deleted"}
