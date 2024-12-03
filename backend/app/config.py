@@ -11,11 +11,23 @@ class Settings(BaseSettings):
     # 数据库配置
     DATABASE_URL: str = "postgresql://dev_user:dev_password@localhost:5432/ckgcus"
 
-    # 文件存储配置
+    # 存储根目录
     STORAGE_DIR: str = "storage"
-    UPLOAD_DIR: str = f"{STORAGE_DIR}/uploads"
-    RAW_TEXT_DIR: str = f"{STORAGE_DIR}/texts/raw"
-    NORM_TEXT_DIR: str = f"{STORAGE_DIR}/texts/normalized"
+
+    @property
+    def UPLOAD_DIR(self) -> str:
+        """上传文件目录"""
+        return f"{self.STORAGE_DIR}/uploads"
+
+    @property
+    def RAW_TEXT_DIR(self) -> str:
+        """原始文本目录"""
+        return f"{self.STORAGE_DIR}/texts/raw"
+
+    @property
+    def NORM_TEXT_DIR(self) -> str:
+        """标准化文本目录"""
+        return f"{self.STORAGE_DIR}/texts/normalized"
 
     # 开发模式配置
     DEV_MODE: bool = True
