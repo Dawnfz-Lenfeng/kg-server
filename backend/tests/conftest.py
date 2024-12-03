@@ -1,4 +1,3 @@
-import asyncio
 from io import BytesIO
 from pathlib import Path
 
@@ -57,14 +56,14 @@ async def db():
         yield session
 
 
-@pytest_asyncio.fixture
-async def doc_svc(db: AsyncSession):
+@pytest.fixture
+def doc_svc(db: AsyncSession):
     """创建文档服务实例"""
     return DocService(db)
 
 
-@pytest_asyncio.fixture
-async def kw_svc(db: AsyncSession):
+@pytest.fixture
+def kw_svc(db: AsyncSession):
     """创建关键词服务实例"""
     return KeywordService(db)
 
