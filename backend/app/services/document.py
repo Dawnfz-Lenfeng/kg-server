@@ -31,7 +31,7 @@ class DocService:
             self.db.refresh(db_doc)
             return db_doc
         except Exception as e:
-            file_path = self._get_text_path(db_doc, DocStage.UPLOAD)
+            file_path = db_doc.upload_path
             if os.path.exists(file_path):
                 os.remove(file_path)
             raise e
@@ -45,12 +45,12 @@ class DocService:
             return None
 
         text = extract_text(
-            self._get_text_path(doc, DocStage.UPLOAD),
+            doc.upload_path,
             file_type=doc.file_type,
             **extract_config.model_dump(),
         )
 
-        with self._save_text(doc, DocStage.EXTRACTED) as f:
+        with self._write_text(doc, DocStage.EXTRACTED) as f:
             f.write(text)
 
         with transaction(self.db):
@@ -67,9 +67,7 @@ class DocService:
         if doc is None or not doc.is_extracted:
             return None
 
-        with open(
-            self._get_text_path(doc, DocStage.EXTRACTED), "r", encoding="utf-8"
-        ) as f:
+        with open(doc.extracted_path, "r", encoding="utf-8") as f:
             raw_text = f.read()
 
         normalized_text = normalize_text(
@@ -77,7 +75,7 @@ class DocService:
             **normalize_config.model_dump(),
         )
 
-        with self._save_text(doc, DocStage.NORMALIZED) as f:
+        with self._write_text(doc, DocStage.NORMALIZED) as f:
             f.write(normalized_text)
 
         with transaction(self.db):
@@ -147,7 +145,7 @@ class DocService:
         if not getattr(doc, stage):
             return None
 
-        with open(self._get_text_path(doc, stage), "r", encoding="utf-8") as f:
+        with open(doc.get_path(stage), "r", encoding="utf-8") as f:
             return f.read()
 
     def delete_doc(self, doc_id: int) -> bool:
@@ -157,7 +155,7 @@ class DocService:
             return False
 
         for stage in list(DocStage):
-            file_path = self._get_text_path(doc, stage)
+            file_path = doc.get_path(stage)
             if os.path.exists(file_path):
                 os.remove(file_path)
 
@@ -166,7 +164,7 @@ class DocService:
         return True
 
     @contextmanager
-    def _save_text(self, doc: Document, stage: DocStage):
+    def _write_text(self, doc: Document, stage: DocStage):
         """文本处理上下文管理器
 
         处理文本文件的读写，并自动更新文档字数
@@ -176,7 +174,7 @@ class DocService:
 
         file = None
         try:
-            file_path = self._get_text_path(doc, stage)
+            file_path = doc.get_path(stage)
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             file = open(file_path, "w", encoding="utf-8")
             yield file
@@ -188,6 +186,3 @@ class DocService:
                     with open(file_path, "r", encoding="utf-8") as f:
                         text = f.read()
                         doc.word_count = len(text)
-
-    def _get_text_path(self, doc: Document, stage: DocStage) -> str:
-        return f"{stage.storage_dir}/{doc.file_name}"

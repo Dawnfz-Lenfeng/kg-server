@@ -3,7 +3,6 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..config import settings
 from .base import KeywordBrief, SetOperation
 
 
@@ -18,15 +17,6 @@ class DocStage(str, Enum):
     UPLOAD = "upload"
     EXTRACTED = "is_extracted"
     NORMALIZED = "is_normalized"
-
-    @property
-    def storage_dir(self) -> str:
-        """获取对应的存储目录"""
-        return {
-            self.UPLOAD: settings.UPLOAD_DIR,
-            self.EXTRACTED: settings.RAW_TEXT_DIR,
-            self.NORMALIZED: settings.NORM_TEXT_DIR,
-        }[self]
 
 
 class DocBase(BaseModel):
