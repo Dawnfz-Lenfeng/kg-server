@@ -7,10 +7,10 @@ import pytest_asyncio
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.database import Base, transaction
-from app.models import Keyword
+from app.database import Base
 from app.schemas.document import DocCreate
-from app.services import DocService
+from app.schemas.keyword import KeywordCreate
+from app.services import DocService, KeywordService
 
 SAMPLES_DIR = Path(__file__).parent / "samples"
 TEST_DB_PATH = Path(__file__).parent / "test.db"
@@ -64,21 +64,9 @@ async def doc_svc(db: AsyncSession):
 
 
 @pytest_asyncio.fixture
-async def sample_keywords(db: AsyncSession):
-    """创建测试用关键词"""
-    keywords = [Keyword(name=f"Keyword{i}") for i in range(3)]
-    async with transaction(db):
-        for kw in keywords:
-            db.add(kw)
-    for kw in keywords:
-        await db.refresh(kw)
-
-    keyword_ids = [kw.id for kw in keywords]
-    yield keyword_ids
-
-    async with transaction(db):
-        for kw in keywords:
-            await db.delete(kw)
+async def kw_svc(db: AsyncSession):
+    """创建关键词服务实例"""
+    return KeywordService(db)
 
 
 @pytest.fixture
@@ -111,6 +99,21 @@ def pdf_files():
 
     yield files
     file_like.close()
+
+
+@pytest_asyncio.fixture
+async def sample_keywords(kw_svc: KeywordService):
+    """创建测试用关键词"""
+    keyword_ids: list[int] = []
+
+    for i in range(3):
+        kw = await kw_svc.create_keyword(KeywordCreate(name=f"Keyword{i}"))
+        keyword_ids.append(kw.id)
+
+    yield keyword_ids
+
+    for kw_id in keyword_ids:
+        await kw_svc.delete_keyword(kw_id)
 
 
 @pytest_asyncio.fixture
