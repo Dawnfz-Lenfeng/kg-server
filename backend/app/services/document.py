@@ -60,10 +60,11 @@ class DocService:
             **extract_config.model_dump(),
         )
 
-        async with self._write_text(doc, DocStage.EXTRACTED) as f:
-            await f.write(text)
+        async with transaction(self.db):
+            async with self._write_text(doc, DocStage.EXTRACTED) as f:
+                await f.write(text)
 
-        return doc
+        return await self.read_doc(doc_id)
 
     async def normalize_doc_text(
         self, doc_id: int, normalize_config: NormalizeConfig
@@ -81,10 +82,11 @@ class DocService:
             **normalize_config.model_dump(),
         )
 
-        async with self._write_text(doc, DocStage.NORMALIZED) as f:
-            await f.write(normalized_text)
+        async with transaction(self.db):
+            async with self._write_text(doc, DocStage.NORMALIZED) as f:
+                await f.write(normalized_text)
 
-        return doc
+        return await self.read_doc(doc_id)
 
     async def update_doc(self, doc_id: int, doc_update: DocUpdate) -> Document | None:
         """更新文档信息"""

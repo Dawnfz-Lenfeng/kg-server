@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 
+from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -43,3 +44,16 @@ async def transaction(db: AsyncSession):
     except Exception:
         await db.rollback()
         raise
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from . import models
+
+    """初始化数据库"""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    yield
+
+    await engine.dispose()
