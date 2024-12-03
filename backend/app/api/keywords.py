@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
 
 
 from ..dependencies.keywords import get_kw_svc
@@ -9,13 +8,7 @@ from ..schemas.keyword import (
     KeywordResponse,
     KeywordUpdate,
 )
-from ..services.keyword import (
-    create_keyword_service,
-    delete_keyword_service,
-    read_keyword_service,
-    read_keywords_service,
-    update_keyword_service,
-)
+from ..services.keyword import KeywordService
 
 router = APIRouter(prefix="/keywords", tags=["keywords"])
 
@@ -23,19 +16,19 @@ router = APIRouter(prefix="/keywords", tags=["keywords"])
 @router.post("", response_model=KeywordDetailResponse)
 async def create_keyword(
     keyword: KeywordCreate,
-    db: Session = Depends(get_kw_svc),
+    kw_svc: KeywordService = Depends(get_kw_svc),
 ):
     """创建关键词"""
-    return await create_keyword_service(keyword, db)
+    return await create_keyword(keyword, kw_svc)
 
 
 @router.get("/{keyword_id}", response_model=KeywordDetailResponse)
 async def read_keyword(
     keyword_id: int,
-    db: Session = Depends(get_kw_svc),
+    kw_svc: KeywordService = Depends(get_kw_svc),
 ):
     """获取关键词"""
-    keyword = read_keyword_service(keyword_id, db)
+    keyword = read_keyword(keyword_id, kw_svc)
     if keyword is None:
         raise HTTPException(status_code=404, detail="Keyword not found")
     return keyword
@@ -46,20 +39,20 @@ async def read_keywords(
     skip: int = 0,
     limit: int = 10,
     search: str | None = Query(None, description="搜索关键词名称"),
-    db: Session = Depends(get_kw_svc),
+    kw_svc: KeywordService = Depends(get_kw_svc),
 ):
     """获取关键词列表"""
-    return read_keywords_service(skip, limit, search, db)
+    return read_keywords(skip, limit, search, kw_svc)
 
 
 @router.put("/{keyword_id}", response_model=KeywordDetailResponse)
 async def update_keyword(
     keyword_id: int,
     keyword: KeywordUpdate,
-    db: Session = Depends(get_kw_svc),
+    kw_svc: KeywordService = Depends(get_kw_svc),
 ):
     """更新关键词"""
-    updated = await update_keyword_service(keyword_id, keyword, db)
+    updated = await update_keyword(keyword_id, keyword, kw_svc)
     if updated is None:
         raise HTTPException(status_code=404, detail="Keyword not found")
     return updated
@@ -68,9 +61,9 @@ async def update_keyword(
 @router.delete("/{keyword_id}")
 async def delete_keyword(
     keyword_id: int,
-    db: Session = Depends(get_kw_svc),
+    kw_svc: KeywordService = Depends(get_kw_svc),
 ):
     """删除关键词"""
-    if not await delete_keyword_service(keyword_id, db):
+    if not await delete_keyword(keyword_id, kw_svc):
         raise HTTPException(status_code=404, detail="Keyword not found")
     return {"message": "Keyword deleted"}
