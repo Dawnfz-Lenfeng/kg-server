@@ -11,6 +11,14 @@ class FileType(str, Enum):
     TXT = "txt"
 
 
+class DocStage(str, Enum):
+    """文档处理阶段枚举"""
+
+    UPLOAD = "upload"
+    EXTRACTED = "is_extracted"
+    NORMALIZED = "is_normalized"
+
+
 class DocBase(BaseModel):
     """文档基础模型"""
 
@@ -24,7 +32,7 @@ class DocBase(BaseModel):
 class DocCreate(DocBase):
     """创建文档请求模型"""
 
-    file_path: str = Field(..., description="文件路径")
+    file_name: str = Field(..., description="文件名称")
     keyword_ids: list[int] | None = Field(default=None, description="关键词ID列表")
 
 
@@ -37,9 +45,13 @@ class DocUpdate(BaseModel):
 
 
 class DocResponse(DocBase):
-    """文档响应基础模型"""
+    """文档响应模型"""
 
     id: int = Field(..., description="文档ID")
+    file_name: str = Field(..., description="文件名称")
+    is_extracted: bool = Field(..., description="是否已提取文本")
+    is_normalized: bool = Field(..., description="是否已标准化")
+    word_count: int | None = Field(None, description="文档字数")
     keywords: list[KeywordBrief] = Field(default_factory=list, description="关键词列表")
     created_at: datetime = Field(..., description="创建时间")
     updated_at: datetime | None = Field(None, description="最后更新时间")
@@ -47,19 +59,11 @@ class DocResponse(DocBase):
     model_config = ConfigDict(from_attributes=True, json_encoders={set: list})
 
 
-class DocDetailResponse(DocResponse):
-    """文档详细响应模型"""
-
-    file_path: str = Field(..., description="文件路径")
-    raw_text: str | None = Field(None, description="原始文本内容")
-    normalized_text: str | None = Field(None, description="处理后的文本内容")
-
-
 class DocUploadResult(BaseModel):
     """文档上传结果"""
 
     success: bool = Field(..., description="是否上传成功")
-    document: DocDetailResponse | None = Field(None, description="文档详情")
+    document: DocResponse | None = Field(None, description="文档详情")
     error: str | None = Field(None, description="错误信息")
 
     model_config = ConfigDict(from_attributes=True)
