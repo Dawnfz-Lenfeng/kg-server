@@ -10,25 +10,25 @@ from ..models.keyword import Keyword
 from ..schemas.keyword import KeywordCreate, KeywordUpdate
 
 
-class KeyService:
+class KeywordService:
     def __init__(self, db: Session):
         self.db = db
 
-    def read_keyword(self, keyword_id: int) -> Keyword | None:
+    def read_keyword_service(self, keyword_id: int) -> Keyword | None:
         """获取单个关键词"""
         stmt = select(Keyword).where(Keyword.id == keyword_id)
         result = self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    def read_keyword_by_name(self, name: str) -> Keyword | None:
+    def read_keyword_by_name_service(self, name: str) -> Keyword | None:
         """通过名称获取关键词"""
         stmt = select(Keyword).where(Keyword.name == name)
         result = self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    def create_keyword(self, keyword: KeywordCreate) -> Keyword:
+    def create_keyword_service(self, keyword: KeywordCreate) -> Keyword:
         """创建关键词"""
-        existing = self.read_keyword_by_name(keyword.name)
+        existing = self.read_keyword_by_name_service(keyword.name)
         if existing:
             raise HTTPException(
                 status_code=400, detail=f"关键词 '{keyword.name}' 已存在"
@@ -51,7 +51,7 @@ class KeyService:
                 status_code=500, detail=f"创建关键词失败: {str(e)}"
             ) from e
 
-    def read_keywords(
+    def read_keywords_service(
         self, skip: int, limit: int, search: str | None
     ) -> Sequence[Keyword]:
         """获取关键词列表"""
@@ -62,18 +62,18 @@ class KeyService:
         result = self.db.execute(stmt)
         return result.scalars().all()
 
-    async def update_keyword(
+    async def update_keyword_service(
         self, keyword_id: int, keyword_update: KeywordUpdate
     ) -> Keyword | None:
         """更新关键词"""
-        db_keyword = self.read_keyword(keyword_id)
+        db_keyword = self.read_keyword_service(keyword_id)
         if db_keyword is None:
             return None
 
         try:
             with transaction(self.db):
                 if keyword_update.name and keyword_update.name != db_keyword.name:
-                    existing = self.read_keyword_by_name(keyword_update.name)
+                    existing = self.read_keyword_by_name_service(keyword_update.name)
                     if existing:
                         raise HTTPException(
                             status_code=400,
@@ -105,9 +105,9 @@ class KeyService:
                 status_code=500, detail=f"更新关键词失败: {str(e)}"
             ) from e
 
-    async def delete_keyword(self, keyword_id: int) -> bool:
+    async def delete_keyword_service(self, keyword_id: int) -> bool:
         """删除关键词"""
-        db_keyword = self.read_keyword(keyword_id)
+        db_keyword = self.read_keyword_service(keyword_id)
         if db_keyword is not None:
             try:
                 with transaction(self.db):

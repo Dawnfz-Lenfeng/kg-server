@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from ..database import get_db
+
+from ..dependencies.keywords import get_kw_svc
 from ..schemas.keyword import (
     KeywordCreate,
     KeywordDetailResponse,
@@ -22,7 +23,7 @@ router = APIRouter(prefix="/keywords", tags=["keywords"])
 @router.post("", response_model=KeywordDetailResponse)
 async def create_keyword(
     keyword: KeywordCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_kw_svc),
 ):
     """创建关键词"""
     return await create_keyword_service(keyword, db)
@@ -31,7 +32,7 @@ async def create_keyword(
 @router.get("/{keyword_id}", response_model=KeywordDetailResponse)
 async def read_keyword(
     keyword_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_kw_svc),
 ):
     """获取关键词"""
     keyword = read_keyword_service(keyword_id, db)
@@ -45,7 +46,7 @@ async def read_keywords(
     skip: int = 0,
     limit: int = 10,
     search: str | None = Query(None, description="搜索关键词名称"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_kw_svc),
 ):
     """获取关键词列表"""
     return read_keywords_service(skip, limit, search, db)
@@ -55,7 +56,7 @@ async def read_keywords(
 async def update_keyword(
     keyword_id: int,
     keyword: KeywordUpdate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_kw_svc),
 ):
     """更新关键词"""
     updated = await update_keyword_service(keyword_id, keyword, db)
@@ -67,7 +68,7 @@ async def update_keyword(
 @router.delete("/{keyword_id}")
 async def delete_keyword(
     keyword_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_kw_svc),
 ):
     """删除关键词"""
     if not await delete_keyword_service(keyword_id, db):
