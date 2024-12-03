@@ -1,9 +1,11 @@
 import os
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 from typing import Sequence
 
+import aiofiles
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from ..database import transaction
 from ..models import Document, Keyword
@@ -13,22 +15,22 @@ from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
 
 
 class DocService:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def create_doc(self, doc: DocCreate) -> Document:
+    async def create_doc(self, doc: DocCreate) -> Document:
         """创建文档"""
         db_doc = Document(**doc.model_dump(exclude={"keyword_ids"}, exclude_unset=True))
         try:
-            with transaction(self.db):
+            async with transaction(self.db):
                 if doc.keyword_ids:
                     stmt = select(Keyword).where(Keyword.id.in_(doc.keyword_ids))
-                    keywords = set(self.db.execute(stmt).scalars().all())
+                    keywords = set((await self.db.execute(stmt)).scalars().all())
                     db_doc.keywords = keywords
 
                 self.db.add(db_doc)
 
-            self.db.refresh(db_doc)
+            await self.db.refresh(db_doc)
             return db_doc
         except Exception as e:
             file_path = db_doc.upload_path
@@ -36,11 +38,11 @@ class DocService:
                 os.remove(file_path)
             raise e
 
-    def extract_doc_text(
+    async def extract_doc_text(
         self, doc_id: int, extract_config: ExtractConfig
     ) -> Document | None:
         """提取文档文本"""
-        doc = self.read_doc(doc_id)
+        doc = await self.read_doc(doc_id)
         if doc is None:
             return None
 
@@ -50,47 +52,47 @@ class DocService:
             **extract_config.model_dump(),
         )
 
-        with self._write_text(doc, DocStage.EXTRACTED) as f:
-            f.write(text)
+        async with self._write_text(doc, DocStage.EXTRACTED) as f:
+            await f.write(text)
 
-        with transaction(self.db):
+        async with transaction(self.db):
             self.db.add(doc)
 
-        self.db.refresh(doc)
+        await self.db.refresh(doc)
         return doc
 
-    def normalize_doc_text(
+    async def normalize_doc_text(
         self, doc_id: int, normalize_config: NormalizeConfig
     ) -> Document | None:
         """标准化文档文本"""
-        doc = self.read_doc(doc_id)
+        doc = await self.read_doc(doc_id)
         if doc is None or not doc.is_extracted:
             return None
 
-        with open(doc.extracted_path, "r", encoding="utf-8") as f:
-            raw_text = f.read()
+        async with aiofiles.open(doc.extracted_path, "r", encoding="utf-8") as f:
+            raw_text = await f.read()
 
         normalized_text = normalize_text(
             raw_text,
             **normalize_config.model_dump(),
         )
 
-        with self._write_text(doc, DocStage.NORMALIZED) as f:
-            f.write(normalized_text)
+        async with self._write_text(doc, DocStage.NORMALIZED) as f:
+            await f.write(normalized_text)
 
-        with transaction(self.db):
+        async with transaction(self.db):
             self.db.add(doc)
 
-        self.db.refresh(doc)
+        await self.db.refresh(doc)
         return doc
 
-    def update_doc(self, doc_id: int, doc_update: DocUpdate) -> Document | None:
+    async def update_doc(self, doc_id: int, doc_update: DocUpdate) -> Document | None:
         """更新文档信息"""
-        doc = self.read_doc(doc_id)
+        doc = await self.read_doc(doc_id)
         if doc is None:
             return None
 
-        with transaction(self.db):
+        async with transaction(self.db):
             update_data = doc_update.model_dump(
                 exclude={"keywords"}, exclude_unset=True
             )
@@ -102,30 +104,32 @@ class DocService:
 
                 if keywords_update.add:
                     stmt = select(Keyword).where(Keyword.id.in_(keywords_update.add))
-                    keywords_to_add = set(self.db.execute(stmt).scalars().all())
+                    keywords_to_add = set((await self.db.execute(stmt)).scalars().all())
                     doc.keywords |= keywords_to_add
 
                 if keywords_update.remove:
                     stmt = select(Keyword).where(Keyword.id.in_(keywords_update.remove))
-                    keywords_to_remove = set(self.db.execute(stmt).scalars().all())
+                    keywords_to_remove = set(
+                        (await self.db.execute(stmt)).scalars().all()
+                    )
                     doc.keywords -= keywords_to_remove
 
             self.db.add(doc)
 
-        self.db.refresh(doc)
+        await self.db.refresh(doc)
         return doc
 
-    def read_doc(self, doc_id: int) -> Document | None:
+    async def read_doc(self, doc_id: int) -> Document | None:
         """获取单个文档"""
         stmt = (
             select(Document)
             .where(Document.id == doc_id)
             .options(selectinload(Document.keywords))
         )
-        result = self.db.execute(stmt)
+        result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    def read_docs(
+    async def read_docs(
         self, skip: int, limit: int, subject_id: int | None
     ) -> Sequence[Document]:
         """获取文档列表"""
@@ -133,24 +137,24 @@ class DocService:
         if subject_id is not None:
             stmt = stmt.where(Document.subject_id == subject_id)
         stmt = stmt.offset(skip).limit(limit)
-        result = self.db.execute(stmt)
+        result = await self.db.execute(stmt)
         return result.scalars().all()
 
-    def read_doc_text(self, doc_id: int, stage: DocStage) -> str | None:
+    async def read_doc_text(self, doc_id: int, stage: DocStage) -> str | None:
         """获取文档文本内容"""
-        doc = self.read_doc(doc_id)
+        doc = await self.read_doc(doc_id)
         if doc is None:
             return None
 
         if not getattr(doc, stage):
             return None
 
-        with open(doc.get_path(stage), "r", encoding="utf-8") as f:
-            return f.read()
+        async with aiofiles.open(doc.get_path(stage), "r", encoding="utf-8") as f:
+            return await f.read()
 
-    def delete_doc(self, doc_id: int) -> bool:
+    async def delete_doc(self, doc_id: int) -> bool:
         """删除文档"""
-        doc = self.read_doc(doc_id)
+        doc = await self.read_doc(doc_id)
         if doc is None:
             return False
 
@@ -159,16 +163,13 @@ class DocService:
             if os.path.exists(file_path):
                 os.remove(file_path)
 
-        with transaction(self.db):
-            self.db.delete(doc)
+        async with transaction(self.db):
+            await self.db.delete(doc)
         return True
 
-    @contextmanager
-    def _write_text(self, doc: Document, stage: DocStage):
-        """文本处理上下文管理器
-
-        处理文本文件的读写，并自动更新文档字数
-        """
+    @asynccontextmanager
+    async def _write_text(self, doc: Document, stage: DocStage):
+        """文本处理上下文管理器"""
         if not getattr(doc, stage):
             setattr(doc, stage, True)
 
@@ -176,13 +177,13 @@ class DocService:
         try:
             file_path = doc.get_path(stage)
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            file = open(file_path, "w", encoding="utf-8")
+            file = await aiofiles.open(file_path, "w", encoding="utf-8")
             yield file
 
         finally:
             if file is not None:
-                file.close()
+                await file.close()
                 if stage == DocStage.NORMALIZED:
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        text = f.read()
+                    async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
+                        text = await f.read()
                         doc.word_count = len(text)

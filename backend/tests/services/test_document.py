@@ -7,7 +7,8 @@ from app.schemas.preprocessing import ExtractConfig, NormalizeConfig, OCREngine
 from app.services import DocService
 
 
-def test_create_doc(
+@pytest.mark.asyncio
+async def test_create_doc(
     sample_keywords: list[Keyword],
     uploaded_file_name: str,
     doc_svc: DocService,
@@ -20,7 +21,7 @@ def test_create_doc(
         subject_id=1,
         keyword_ids=[sample_keywords[0].id, sample_keywords[1].id],
     )
-    doc = doc_svc.create_doc(doc=doc_create)
+    doc = await doc_svc.create_doc(doc=doc_create)
 
     assert doc.id is not None
     assert doc.title == "新建文档"
@@ -31,12 +32,13 @@ def test_create_doc(
     assert sample_keywords[0].id in keyword_ids
     assert sample_keywords[1].id in keyword_ids
 
-    doc_svc.delete_doc(doc_id=doc.id)
+    await doc_svc.delete_doc(doc_id=doc.id)
 
 
-def test_read_doc(sample_doc: Document, doc_svc: DocService):
+@pytest.mark.asyncio
+async def test_read_doc(sample_doc: Document, doc_svc: DocService):
     """测试读取单个文档"""
-    doc = doc_svc.read_doc(doc_id=sample_doc.id)
+    doc = await doc_svc.read_doc(doc_id=sample_doc.id)
 
     assert doc is not None
     assert doc.id == sample_doc.id
@@ -45,7 +47,8 @@ def test_read_doc(sample_doc: Document, doc_svc: DocService):
     assert len(doc.keywords) == 2
 
 
-def test_update_doc(
+@pytest.mark.asyncio
+async def test_update_doc(
     sample_doc: Document,
     sample_keywords: list[Keyword],
     doc_svc: DocService,
@@ -57,7 +60,7 @@ def test_update_doc(
         remove=[sample_keywords[0].id],  # 移除第一个关键词
     )
 
-    updated = doc_svc.update_doc(
+    updated = await doc_svc.update_doc(
         doc_id=sample_doc.id,
         doc_update=DocUpdate(title=new_title, keywords=keywords_update),
     )
@@ -73,22 +76,24 @@ def test_update_doc(
     assert sample_keywords[0].id not in keyword_ids  # 已移除的关键词
 
 
-def test_delete_doc(sample_doc: Document, doc_svc: DocService):
+@pytest.mark.asyncio
+async def test_delete_doc(sample_doc: Document, doc_svc: DocService):
     """测试删除文档"""
-    result = doc_svc.delete_doc(doc_id=sample_doc.id)
+    result = await doc_svc.delete_doc(doc_id=sample_doc.id)
     assert result is True
 
-    doc = doc_svc.read_doc(doc_id=sample_doc.id)
+    doc = await doc_svc.read_doc(doc_id=sample_doc.id)
     assert doc is None
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("ocr_engine", list(OCREngine))
-def test_extract_doc_text(
+async def test_extract_doc_text(
     sample_doc: Document, ocr_engine: OCREngine, doc_svc: DocService
 ):
     """测试提取文档文本"""
     config = ExtractConfig(ocr_engine=ocr_engine, force_ocr=True)
-    doc = doc_svc.extract_doc_text(
+    doc = await doc_svc.extract_doc_text(
         doc_id=sample_doc.id,
         extract_config=config,
     )
@@ -97,11 +102,12 @@ def test_extract_doc_text(
     assert doc.is_extracted
 
 
-def test_normalize_doc_text(sample_doc: Document, doc_svc: DocService):
+@pytest.mark.asyncio
+async def test_normalize_doc_text(sample_doc: Document, doc_svc: DocService):
     """测试清洗文档文本"""
-    doc_svc.extract_doc_text(doc_id=sample_doc.id, extract_config=ExtractConfig())
+    await doc_svc.extract_doc_text(doc_id=sample_doc.id, extract_config=ExtractConfig())
 
-    doc = doc_svc.normalize_doc_text(
+    doc = await doc_svc.normalize_doc_text(
         doc_id=sample_doc.id, normalize_config=NormalizeConfig()
     )
 
