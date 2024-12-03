@@ -46,13 +46,13 @@ def read_keywords(
 
 
 @router.put("/{keyword_id}", response_model=KeywordDetailResponse)
-async def update_keyword(
+def update_keyword(
     keyword_id: int,
     keyword: KeywordUpdate,
     kw_svc: KeywordService = Depends(get_kw_svc),
 ):
     """更新关键词"""
-    updated = await kw_svc.update_keyword(keyword_id, keyword)
+    updated = kw_svc.update_keyword(keyword_id, keyword)
     if updated is None:
         raise HTTPException(status_code=404, detail="Keyword not found")
     return updated

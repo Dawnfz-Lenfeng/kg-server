@@ -96,7 +96,7 @@ class KeywordService:
         self.db.refresh(db_keyword)
         return db_keyword
 
-    def delete_keyword_service(self, keyword_id: int) -> bool:
+    def delete_keyword(self, keyword_id: int) -> bool:
         """删除关键词"""
         db_keyword = self.read_keyword(keyword_id)
         if db_keyword is not None:
