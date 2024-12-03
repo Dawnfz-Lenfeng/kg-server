@@ -18,20 +18,23 @@ class DocService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create_doc(self, doc: DocCreate) -> Document:
+    async def create_doc(self, doc_create: DocCreate) -> Document:
         """创建文档"""
-        db_doc = Document(**doc.model_dump(exclude={"keyword_ids"}, exclude_unset=True))
+        db_doc = Document(
+            **doc_create.model_dump(exclude={"keyword_ids"}, exclude_unset=True)
+        )
         try:
             async with transaction(self.db):
-                if doc.keyword_ids:
-                    stmt = select(Keyword).where(Keyword.id.in_(doc.keyword_ids))
+                if doc_create.keyword_ids:
+                    stmt = select(Keyword).where(Keyword.id.in_(doc_create.keyword_ids))
                     keywords = set((await self.db.execute(stmt)).scalars().all())
                     db_doc.keywords = keywords
 
                 self.db.add(db_doc)
 
             await self.db.refresh(db_doc)
-            return db_doc
+            return await self.read_doc(db_doc.id)
+
         except Exception as e:
             file_path = db_doc.upload_path
             if os.path.exists(file_path):
@@ -117,7 +120,7 @@ class DocService:
             self.db.add(doc)
 
         await self.db.refresh(doc)
-        return doc
+        return await self.read_doc(doc.id)
 
     async def read_doc(self, doc_id: int) -> Document | None:
         """获取单个文档"""

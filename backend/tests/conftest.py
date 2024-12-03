@@ -29,17 +29,8 @@ TestingSessionLocal = async_sessionmaker(
 )
 
 
-@pytest_asyncio.fixture(scope="session")
-def event_loop():
-    """创建一个session作用域的事件循环"""
-    policy = asyncio.get_event_loop_policy()
-    loop = policy.new_event_loop()
-    yield loop
-    loop.close()
-
-
 @pytest_asyncio.fixture(scope="session", autouse=True)
-async def setup_test_db(event_loop: asyncio.AbstractEventLoop):
+async def setup_test_db():
     """设置测试数据库"""
     from app import models
 
@@ -54,14 +45,13 @@ async def setup_test_db(event_loop: asyncio.AbstractEventLoop):
         await conn.run_sync(Base.metadata.drop_all)
 
     await engine.dispose()
-    await engine.pool.dispose()
 
     if TEST_DB_PATH.exists():
         TEST_DB_PATH.unlink()
 
 
 @pytest_asyncio.fixture
-async def db(event_loop: asyncio.AbstractEventLoop):
+async def db():
     """创建测试数据库会话"""
     async with TestingSessionLocal() as session:
         yield session
@@ -76,17 +66,16 @@ async def doc_svc(db: AsyncSession):
 @pytest_asyncio.fixture
 async def sample_keywords(db: AsyncSession):
     """创建测试用关键词"""
-    keywords = [
-        Keyword(name="测试关键词1"),
-        Keyword(name="测试关键词2"),
-        Keyword(name="测试关键词3"),
-    ]
+    keywords = [Keyword(name=f"Keyword{i}") for i in range(3)]
     async with transaction(db):
         for kw in keywords:
             db.add(kw)
     for kw in keywords:
         await db.refresh(kw)
-    yield keywords
+
+    keyword_ids = [kw.id for kw in keywords]
+    yield keyword_ids
+
     async with transaction(db):
         for kw in keywords:
             await db.delete(kw)
@@ -125,7 +114,7 @@ def pdf_files():
 
 
 @pytest_asyncio.fixture
-async def uploaded_file_name(pdf_file: UploadFile, event_loop) -> str:
+async def uploaded_file_name(pdf_file: UploadFile) -> str:
     from app.dependencies.documents import _save_uploaded_file
 
     return await _save_uploaded_file(file=pdf_file)
@@ -133,10 +122,9 @@ async def uploaded_file_name(pdf_file: UploadFile, event_loop) -> str:
 
 @pytest_asyncio.fixture
 async def sample_doc(
-    sample_keywords: list[Keyword],
+    sample_keywords: list[int],
     uploaded_file_name: str,
     doc_svc: DocService,
-    event_loop,
 ):
     """创建测试文档"""
     doc = DocCreate(
@@ -144,9 +132,9 @@ async def sample_doc(
         file_name=uploaded_file_name,
         file_type="pdf",
         subject_id=1,
-        keyword_ids=[k.id for k in sample_keywords[:2]],
+        keyword_ids=sample_keywords[:2],
     )
     document = await doc_svc.create_doc(doc)
     assert document is not None
-    yield document
+    yield document.id
     await doc_svc.delete_doc(document.id)
