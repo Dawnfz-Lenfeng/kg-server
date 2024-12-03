@@ -2,7 +2,8 @@ from typing import Sequence
 
 from fastapi import HTTPException
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from ..database import transaction
 from ..models.document import Document
@@ -11,68 +12,83 @@ from ..schemas.keyword import KeywordCreate, KeywordUpdate
 
 
 class KeywordService:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def read_keyword(self, keyword_id: int) -> Keyword | None:
-        """获取单个关键词"""
-        stmt = select(Keyword).where(Keyword.id == keyword_id)
-        result = self.db.execute(stmt)
-        return result.scalar_one_or_none()
-
-    def read_keyword_by_name(self, name: str) -> Keyword | None:
-        """通过名称获取关键词"""
-        stmt = select(Keyword).where(Keyword.name == name)
-        result = self.db.execute(stmt)
-        return result.scalar_one_or_none()
-
-    def create_keyword(self, keyword: KeywordCreate) -> Keyword:
+    async def create_keyword(self, keyword_create: KeywordCreate) -> Keyword:
         """创建关键词"""
-        existing = self.read_keyword_by_name(keyword.name)
+        existing = await self.read_keyword_by_name(keyword_create.name)
         if existing:
             raise HTTPException(
-                status_code=400, detail=f"关键词 '{keyword.name}' 已存在"
+                status_code=400,
+                detail=f"Keyword '{keyword_create.name}' has already been created",
             )
 
-        with transaction(self.db):
-            db_keyword = Keyword(name=keyword.name)
-            if keyword.document_ids:
-                stmt = select(Document).where(Document.id.in_(keyword.document_ids))
-                documents = set(self.db.execute(stmt).scalars().all())
+        async with transaction(self.db):
+            db_keyword = Keyword(name=keyword_create.name)
+            if keyword_create.document_ids:
+                stmt = select(Document).where(
+                    Document.id.in_(keyword_create.document_ids)
+                )
+                documents = set((await self.db.execute(stmt)).scalars().all())
                 db_keyword.documents = documents
 
             self.db.add(db_keyword)
 
-        self.db.refresh(db_keyword)
-        return db_keyword
+        await self.db.refresh(db_keyword)
 
-    def read_keywords(
+        keyword = await self.read_keyword(db_keyword.id)
+        if keyword is None:
+            raise HTTPException(status_code=500, detail="Failed to create keyword")
+
+        return keyword
+
+    async def read_keyword(self, keyword_id: int) -> Keyword | None:
+        """获取单个关键词"""
+        stmt = (
+            select(Keyword)
+            .where(Keyword.id == keyword_id)
+            .options(selectinload(Keyword.documents))
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def read_keyword_by_name(self, name: str) -> Keyword | None:
+        """通过名称获取关键词"""
+        stmt = (
+            select(Keyword)
+            .where(Keyword.name == name)
+            .options(selectinload(Keyword.documents))
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def read_keywords(
         self, skip: int, limit: int, search: str | None
     ) -> Sequence[Keyword]:
         """获取关键词列表"""
-        stmt = select(Keyword)
+        stmt = select(Keyword).options(selectinload(Keyword.documents))
         if search:
             stmt = stmt.where(Keyword.name.ilike(f"%{search}%"))
         stmt = stmt.offset(skip).limit(limit)
-        result = self.db.execute(stmt)
+        result = await self.db.execute(stmt)
         return result.scalars().all()
 
-    def update_keyword(
+    async def update_keyword(
         self, keyword_id: int, keyword_update: KeywordUpdate
     ) -> Keyword | None:
         """更新关键词"""
-        db_keyword = self.read_keyword(keyword_id)
+        db_keyword = await self.read_keyword(keyword_id)
         if db_keyword is None:
             return None
 
-        # 更新关键词的名称及其关联的文档
-        with transaction(self.db):
+        async with transaction(self.db):
             if keyword_update.name and keyword_update.name != db_keyword.name:
-                existing = self.read_keyword_by_name(keyword_update.name)
+                existing = await self.read_keyword_by_name(keyword_update.name)
                 if existing:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"关键词 '{keyword_update.name}' 已存在",
+                        detail=f"Keyword '{keyword_update.name}' has already been created",
                     )
                 db_keyword.name = keyword_update.name
 
@@ -81,26 +97,26 @@ class KeywordService:
                     stmt = select(Document).where(
                         Document.id.in_(keyword_update.documents.add)
                     )
-                    docs_to_add = set(self.db.execute(stmt).scalars().all())
+                    docs_to_add = set((await self.db.execute(stmt)).scalars().all())
                     db_keyword.documents |= docs_to_add
 
                 if keyword_update.documents.remove:
                     stmt = select(Document).where(
                         Document.id.in_(keyword_update.documents.remove)
                     )
-                    docs_to_remove = set(self.db.execute(stmt).scalars().all())
+                    docs_to_remove = set((await self.db.execute(stmt)).scalars().all())
                     db_keyword.documents -= docs_to_remove
 
             self.db.add(db_keyword)
 
-        self.db.refresh(db_keyword)
-        return db_keyword
+        return await self.read_keyword(keyword_id)
 
-    def delete_keyword(self, keyword_id: int) -> bool:
+    async def delete_keyword(self, keyword_id: int) -> bool:
         """删除关键词"""
-        db_keyword = self.read_keyword(keyword_id)
-        if db_keyword is not None:
-            with transaction(self.db):
-                self.db.delete(db_keyword)
-            return True
-        return False
+        db_keyword = await self.read_keyword(keyword_id)
+        if db_keyword is None:
+            return False
+
+        async with transaction(self.db):
+            await self.db.delete(db_keyword)
+        return True

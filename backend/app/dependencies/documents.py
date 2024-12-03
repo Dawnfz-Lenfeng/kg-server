@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import cast
 
 from fastapi import Depends, File, Form, HTTPException, UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
 from ..database import get_db
@@ -12,7 +13,7 @@ from ..schemas.document import DocCreate, FileType
 from ..services.document import DocService
 
 
-def get_doc_svc(db=Depends(get_db)):
+async def get_doc_svc(db: AsyncSession = Depends(get_db)) -> DocService:
     return DocService(db)
 
 

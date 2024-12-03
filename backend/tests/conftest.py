@@ -4,77 +4,68 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 from fastapi import UploadFile
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.database import Base, transaction
-from app.models import Keyword
+from app.database import Base
 from app.schemas.document import DocCreate
-from app.services import DocService
+from app.schemas.keyword import KeywordCreate
+from app.services import DocService, KeywordService
 
 SAMPLES_DIR = Path(__file__).parent / "samples"
 TEST_DB_PATH = Path(__file__).parent / "test.db"
-SQLALCHEMY_TEST_DATABASE_URL = f"sqlite:///{TEST_DB_PATH}"
+SQLALCHEMY_TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
 
-engine = create_engine(
+engine = create_async_engine(
     SQLALCHEMY_TEST_DATABASE_URL,
     connect_args={"check_same_thread": False},
 )
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+TestingSessionLocal = async_sessionmaker(
+    class_=AsyncSession,
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+)
 
 
-@pytest.fixture(scope="session", autouse=True)
-def setup_test_db():
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def setup_test_db():
     """设置测试数据库"""
     from app import models
 
     if TEST_DB_PATH.exists():
         TEST_DB_PATH.unlink()
 
-    Base.metadata.create_all(bind=engine)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     yield
 
-    engine.dispose()
-    Base.metadata.drop_all(bind=engine)
-    engine.pool.dispose()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+
+    await engine.dispose()
 
     if TEST_DB_PATH.exists():
         TEST_DB_PATH.unlink()
 
 
-@pytest.fixture
-def db():
+@pytest_asyncio.fixture
+async def db():
     """创建测试数据库会话"""
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    async with TestingSessionLocal() as session:
+        yield session
 
 
 @pytest.fixture
-def doc_svc(db: Session):
+def doc_svc(db: AsyncSession):
     """创建文档服务实例"""
     return DocService(db)
 
 
 @pytest.fixture
-def sample_keywords(db: Session):
-    """创建测试用关键词"""
-    keywords = [
-        Keyword(name="测试关键词1"),
-        Keyword(name="测试关键词2"),
-        Keyword(name="测试关键词3"),
-    ]
-    with transaction(db):
-        for kw in keywords:
-            db.add(kw)
-    for kw in keywords:
-        db.refresh(kw)
-    yield keywords
-    with transaction(db):
-        for kw in keywords:
-            db.delete(kw)
+def kw_svc(db: AsyncSession):
+    """创建关键词服务实例"""
+    return KeywordService(db)
 
 
 @pytest.fixture
@@ -110,15 +101,30 @@ def pdf_files():
 
 
 @pytest_asyncio.fixture
+async def sample_keywords(kw_svc: KeywordService):
+    """创建测试用关键词"""
+    keyword_ids: list[int] = []
+
+    for i in range(3):
+        kw = await kw_svc.create_keyword(KeywordCreate(name=f"Keyword{i}"))
+        keyword_ids.append(kw.id)
+
+    yield keyword_ids
+
+    for kw_id in keyword_ids:
+        await kw_svc.delete_keyword(kw_id)
+
+
+@pytest_asyncio.fixture
 async def uploaded_file_name(pdf_file: UploadFile) -> str:
     from app.dependencies.documents import _save_uploaded_file
 
     return await _save_uploaded_file(file=pdf_file)
 
 
-@pytest.fixture
-def sample_doc(
-    sample_keywords: list[Keyword],
+@pytest_asyncio.fixture
+async def sample_doc(
+    sample_keywords: list[int],
     uploaded_file_name: str,
     doc_svc: DocService,
 ):
@@ -128,9 +134,9 @@ def sample_doc(
         file_name=uploaded_file_name,
         file_type="pdf",
         subject_id=1,
-        keyword_ids=[k.id for k in sample_keywords[:2]],
+        keyword_ids=sample_keywords[:2],
     )
-    document = doc_svc.create_doc(doc)
+    document = await doc_svc.create_doc(doc)
     assert document is not None
-    yield document
-    doc_svc.delete_doc(document.id)
+    yield document.id
+    await doc_svc.delete_doc(document.id)

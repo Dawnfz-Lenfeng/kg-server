@@ -1,40 +1,59 @@
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from fastapi import FastAPI
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase
 
 from .config import settings
 
 if settings.DEV_MODE:
-    SQLALCHEMY_DATABASE_URL = "sqlite:///./dev.db"
-    engine = create_engine(
+    SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./dev.db"
+    engine = create_async_engine(
         SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
     )
 else:
-    engine = create_engine(settings.DATABASE_URL)
+    # PostgreSQL 异步 URL 格式：postgresql+asyncpg://
+    engine = create_async_engine(
+        settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+    )
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+AsyncSessionLocal = async_sessionmaker(
+    engine, class_=AsyncSession, autocommit=False, autoflush=False
+)
 
 
 class Base(DeclarativeBase):
     pass
 
 
-def get_db():
-    """获取数据库会话"""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_db():
+    """获取异步数据库会话"""
+    async with AsyncSessionLocal() as db:
+        try:
+            yield db
+        finally:
+            await db.close()
 
 
-@contextmanager
-def transaction(db: Session):
-    """事务上下文管理器"""
+@asynccontextmanager
+async def transaction(db: AsyncSession):
+    """异步事务上下文管理器"""
     try:
         yield
-        db.commit()
+        await db.commit()
     except Exception:
-        db.rollback()
+        await db.rollback()
         raise
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from . import models
+
+    """初始化数据库"""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    yield
+
+    await engine.dispose()
