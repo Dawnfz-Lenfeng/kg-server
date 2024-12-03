@@ -1,6 +1,7 @@
-import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 
@@ -9,18 +10,20 @@ settings.TESTING = True
 from app.database import get_db
 from app.main import app
 
-from ..conftest import TestingSessionLocal
 
+@pytest_asyncio.fixture(autouse=True)
+async def override_dependency(db: AsyncSession):
+    """覆盖应用中的 get_db 依赖，使用测试中的 db 会话"""
 
-async def override_get_db():
-    async with TestingSessionLocal() as db:
+    async def _override_get_db():
         try:
             yield db
         finally:
-            await db.close()
+            pass
 
-
-app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_db] = _override_get_db
+    yield
+    app.dependency_overrides.pop(get_db, None)
 
 
 @pytest_asyncio.fixture

@@ -33,7 +33,12 @@ class DocService:
                 self.db.add(db_doc)
 
             await self.db.refresh(db_doc)
-            return await self.read_doc(db_doc.id)
+
+            doc = await self.read_doc(db_doc.id)
+            if doc is None:
+                raise Exception("Create doc failed.")
+
+            return doc
 
         except Exception as e:
             file_path = db_doc.upload_path
@@ -58,10 +63,6 @@ class DocService:
         async with self._write_text(doc, DocStage.EXTRACTED) as f:
             await f.write(text)
 
-        async with transaction(self.db):
-            self.db.add(doc)
-
-        await self.db.refresh(doc)
         return doc
 
     async def normalize_doc_text(
@@ -83,10 +84,6 @@ class DocService:
         async with self._write_text(doc, DocStage.NORMALIZED) as f:
             await f.write(normalized_text)
 
-        async with transaction(self.db):
-            self.db.add(doc)
-
-        await self.db.refresh(doc)
         return doc
 
     async def update_doc(self, doc_id: int, doc_update: DocUpdate) -> Document | None:
@@ -117,10 +114,7 @@ class DocService:
                     )
                     doc.keywords -= keywords_to_remove
 
-            self.db.add(doc)
-
-        await self.db.refresh(doc)
-        return await self.read_doc(doc.id)
+        return await self.read_doc(doc_id)
 
     async def read_doc(self, doc_id: int) -> Document | None:
         """获取单个文档"""
