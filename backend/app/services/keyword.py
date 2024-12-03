@@ -46,19 +46,18 @@ class KeywordService:
         self.db.refresh(db_keyword)
         return db_keyword
 
-
     def read_keywords(
-            self, skip: int, limit: int, search: str | None
-        ) -> Sequence[Keyword]:
-            """获取关键词列表"""
-            stmt = select(Keyword)
-            if search:
-                stmt = stmt.where(Keyword.name.ilike(f"%{search}%"))
-            stmt = stmt.offset(skip).limit(limit)
-            result = self.db.execute(stmt)
-            return result.scalars().all()
+        self, skip: int, limit: int, search: str | None
+    ) -> Sequence[Keyword]:
+        """获取关键词列表"""
+        stmt = select(Keyword)
+        if search:
+            stmt = stmt.where(Keyword.name.ilike(f"%{search}%"))
+        stmt = stmt.offset(skip).limit(limit)
+        result = self.db.execute(stmt)
+        return result.scalars().all()
 
-    async def update_keyword(
+    def update_keyword(
         self, keyword_id: int, keyword_update: KeywordUpdate
     ) -> Keyword | None:
         """更新关键词"""
@@ -97,7 +96,7 @@ class KeywordService:
         self.db.refresh(db_keyword)
         return db_keyword
 
-    async def delete_keyword_service(self, keyword_id: int) -> bool:
+    def delete_keyword_service(self, keyword_id: int) -> bool:
         """删除关键词"""
         db_keyword = self.read_keyword(keyword_id)
         if db_keyword is not None:
