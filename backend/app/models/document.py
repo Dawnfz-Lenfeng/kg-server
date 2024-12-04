@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+import aiofiles
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -62,3 +64,34 @@ class Document(Base):
             DocStage.EXTRACTED: self.extracted_path,
             DocStage.NORMALIZED: self.normalized_path,
         }[stage]
+
+    def create_dirs(self):
+        """创建文档所需的所有目录"""
+        for stage in DocStage:
+            file_path = self.get_path(stage)
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+    def delete_dirs(self):
+        """删除文档所需的所有目录"""
+        for stage in DocStage:
+            file_path = self.get_path(stage)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+
+    async def read_text(self, stage: DocStage) -> str:
+        """读取文档文本"""
+        file_path = self.get_path(stage)
+        async with aiofiles.open(file_path, "r", encoding="utf-8") as file:
+            return await file.read()
+
+    async def write_text(self, text: str, stage: DocStage):
+        """写入文档文本并更新状态"""
+        if not getattr(self, stage):
+            setattr(self, stage, True)
+
+        file_path = self.get_path(stage)
+        async with aiofiles.open(file_path, "w", encoding="utf-8") as file:
+            await file.write(text)
+
+        if stage == DocStage.NORMALIZED:
+            self.word_count = len(text)
