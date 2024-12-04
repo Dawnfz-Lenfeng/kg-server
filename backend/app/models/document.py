@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -42,55 +41,55 @@ class Document(Base):
     )
 
     @property
-    def upload_path(self) -> str:
+    def upload_path(self):
         """获取原始上传文件路径"""
-        return f"{settings.UPLOAD_DIR}/{self.file_name}"
+        return settings.UPLOAD_DIR / f"{self.file_name}.{self.file_type}"
 
     @property
-    def extracted_path(self) -> str:
+    def extracted_path(self):
         """获取提取文本的文件路径"""
-        return f"{settings.RAW_TEXT_DIR}/{self.file_name}"
+        return settings.RAW_TEXT_DIR / f"{self.file_name}.txt"
 
     @property
-    def normalized_path(self) -> str:
+    def normalized_path(self):
         """获取标准化文本的文件路径"""
-        return f"{settings.NORM_TEXT_DIR}/{self.file_name}"
+        return settings.NORM_TEXT_DIR / f"{self.file_name}.txt"
 
-    def get_path(self, stage: DocState) -> str:
+    def get_path(self, state: DocState):
         """根据处理阶段获取对应的文件路径"""
         return {
             DocState.UPLOADED: self.upload_path,
             DocState.EXTRACTED: self.extracted_path,
             DocState.NORMALIZED: self.normalized_path,
-        }[stage]
+        }[state]
 
     def create_dirs(self):
         """创建文档所需的所有目录"""
-        for stage in DocState:
-            file_path = self.get_path(stage)
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        for state in DocState:
+            file_path = self.get_path(state)
+            file_path.parent.mkdir(parents=True, exist_ok=True)
 
     def delete_dirs(self):
         """删除文档所需的所有目录"""
-        for stage in DocState:
-            file_path = self.get_path(stage)
-            if os.path.exists(file_path):
-                os.remove(file_path)
+        for state in DocState:
+            file_path = self.get_path(state)
+            if file_path.exists():
+                file_path.unlink()
 
-    async def read_text(self, stage: DocState) -> str:
+    async def read_text(self, state: DocState) -> str:
         """读取文档文本"""
-        file_path = self.get_path(stage)
+        file_path = self.get_path(state)
         async with aiofiles.open(file_path, "r", encoding="utf-8") as file:
             return await file.read()
 
-    async def write_text(self, text: str, stage: DocState):
+    async def write_text(self, text: str, state: DocState):
         """写入文档文本并更新状态"""
-        if self.state < stage:
-            self.state = stage
+        if self.state < state:
+            self.state = state
 
-        file_path = self.get_path(stage)
+        file_path = self.get_path(state)
         async with aiofiles.open(file_path, "w", encoding="utf-8") as file:
             await file.write(text)
 
-        if stage == DocState.NORMALIZED:
+        if state == DocState.NORMALIZED:
             self.word_count = len(text)

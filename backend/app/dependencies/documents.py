@@ -1,5 +1,4 @@
 import asyncio
-import os
 import uuid
 from pathlib import Path
 from typing import cast
@@ -65,21 +64,21 @@ async def get_docs(
     return await asyncio.gather(*tasks)
 
 
-async def _save_uploaded_file(file: UploadFile) -> str:
+async def _save_uploaded_file(file: UploadFile):
     """保存上传的文件到指定目录"""
     file_name = _get_unique_filename(cast(str, file.filename))
-    file_path = os.path.join(settings.UPLOAD_DIR, file_name)
-    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    file_path = settings.UPLOAD_DIR / file_name
+    file_path.parent.mkdir(parents=True, exist_ok=True)
 
     content = await file.read()
     with open(file_path, "wb") as f:
         f.write(content)
 
-    return file_name
+    return file_path.stem
 
 
-def _get_unique_filename(original_name: str) -> str:
+def _get_unique_filename(original_name: str) -> Path:
     """生成唯一文件名 - 私有辅助方法"""
     stem = Path(original_name).stem
     suffix = Path(original_name).suffix
-    return f"{stem}_{uuid.uuid4().hex[:8]}{suffix}"
+    return Path(f"{stem}_{uuid.uuid4().hex[:8]}{suffix}")

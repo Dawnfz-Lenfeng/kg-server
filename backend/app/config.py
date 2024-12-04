@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,19 +17,19 @@ class Settings(BaseSettings):
     STORAGE_DIR: str = "storage"
 
     @property
-    def UPLOAD_DIR(self) -> str:
+    def UPLOAD_DIR(self):
         """上传文件目录"""
-        return f"{self.STORAGE_DIR}/uploads"
+        return Path(f"{self.STORAGE_DIR}/uploads")
 
     @property
-    def RAW_TEXT_DIR(self) -> str:
+    def RAW_TEXT_DIR(self):
         """原始文本目录"""
-        return f"{self.STORAGE_DIR}/texts/raw"
+        return Path(f"{self.STORAGE_DIR}/texts/raw")
 
     @property
-    def NORM_TEXT_DIR(self) -> str:
+    def NORM_TEXT_DIR(self):
         """标准化文本目录"""
-        return f"{self.STORAGE_DIR}/texts/normalized"
+        return Path(f"{self.STORAGE_DIR}/texts/normalized")
 
     # 开发模式配置
     DEV_MODE: bool = True
