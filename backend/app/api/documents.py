@@ -60,7 +60,10 @@ async def extract_doc_text(
     doc_svc: DocService = Depends(get_doc_svc),
 ):
     """提取文档文本"""
-    return await doc_svc.extract_doc_text(doc_id, extract_config)
+    doc = await doc_svc.extract_doc_text(doc_id, extract_config)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return doc
 
 
 @router.put("/{doc_id}/normalize", response_model=DocResponse)
@@ -70,7 +73,10 @@ async def normalize_doc_text(
     doc_svc: DocService = Depends(get_doc_svc),
 ):
     """清洗文档文本"""
-    return await doc_svc.normalize_doc_text(doc_id, normalize_config)
+    doc = await doc_svc.normalize_doc_text(doc_id, normalize_config)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return doc
 
 
 @router.put("/{doc_id}", response_model=DocResponse)
@@ -103,10 +109,13 @@ async def read_doc_text(
     doc_id: int,
     normalized: bool = Query(True, description="是否获取标准化文本"),
     doc_svc: DocService = Depends(get_doc_svc),
-) -> str | None:
+) -> str:
     """获取文档文本内容"""
     stage = DocStage.NORMALIZED if normalized else DocStage.EXTRACTED
-    return await doc_svc.read_doc_text(doc_id, stage)
+    text = await doc_svc.read_doc_text(doc_id, stage)
+    if text is None:
+        raise HTTPException(status_code=404, detail="Document text not found")
+    return text
 
 
 @router.get("", response_model=list[DocResponse])

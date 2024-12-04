@@ -1,5 +1,4 @@
 import os
-from contextlib import asynccontextmanager
 from typing import Sequence
 
 import aiofiles
@@ -23,6 +22,7 @@ class DocService:
         db_doc = Document(
             **doc_create.model_dump(exclude={"keyword_ids"}, exclude_unset=True)
         )
+        db_doc.create_dirs()
         try:
             async with transaction(self.db):
                 if doc_create.keyword_ids:
@@ -61,8 +61,7 @@ class DocService:
         )
 
         async with transaction(self.db):
-            async with self._write_text(doc, DocStage.EXTRACTED) as f:
-                await f.write(text)
+            await doc.write_text(text, DocStage.EXTRACTED)
 
         return await self.read_doc(doc_id)
 
@@ -83,8 +82,7 @@ class DocService:
         )
 
         async with transaction(self.db):
-            async with self._write_text(doc, DocStage.NORMALIZED) as f:
-                await f.write(normalized_text)
+            await doc.write_text(normalized_text, DocStage.NORMALIZED)
 
         return await self.read_doc(doc_id)
 
@@ -148,8 +146,7 @@ class DocService:
         if not getattr(doc, stage):
             return None
 
-        async with aiofiles.open(doc.get_path(stage), "r", encoding="utf-8") as f:
-            return await f.read()
+        return await doc.read_text(stage)
 
     async def delete_doc(self, doc_id: int) -> bool:
         """删除文档"""
@@ -157,32 +154,8 @@ class DocService:
         if doc is None:
             return False
 
-        for stage in list(DocStage):
-            file_path = doc.get_path(stage)
-            if os.path.exists(file_path):
-                os.remove(file_path)
+        doc.delete_dirs()
 
         async with transaction(self.db):
             await self.db.delete(doc)
         return True
-
-    @asynccontextmanager
-    async def _write_text(self, doc: Document, stage: DocStage):
-        """文本处理上下文管理器"""
-        if not getattr(doc, stage):
-            setattr(doc, stage, True)
-
-        file = None
-        try:
-            file_path = doc.get_path(stage)
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            file = await aiofiles.open(file_path, "w", encoding="utf-8")
-            yield file
-
-        finally:
-            if file is not None:
-                await file.close()
-                if stage == DocStage.NORMALIZED:
-                    async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
-                        text = await f.read()
-                        doc.word_count = len(text)
