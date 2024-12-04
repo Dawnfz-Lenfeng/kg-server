@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from ..database import transaction
 from ..models import Document, Keyword
 from ..preprocessing import extract_text, normalize_text
-from ..schemas.document import DocCreate, DocStage, DocUpdate
+from ..schemas.document import DocCreate, DocState, DocUpdate
 from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
 
 
@@ -61,7 +61,7 @@ class DocService:
         )
 
         async with transaction(self.db):
-            await doc.write_text(text, DocStage.EXTRACTED)
+            await doc.write_text(text, DocState.EXTRACTED)
 
         return await self.read_doc(doc_id)
 
@@ -70,7 +70,7 @@ class DocService:
     ) -> Document | None:
         """标准化文档文本"""
         doc = await self.read_doc(doc_id)
-        if doc is None or not doc.is_extracted:
+        if doc is None or doc.state < DocState.EXTRACTED:
             return None
 
         async with aiofiles.open(doc.extracted_path, "r", encoding="utf-8") as f:
@@ -82,7 +82,7 @@ class DocService:
         )
 
         async with transaction(self.db):
-            await doc.write_text(normalized_text, DocStage.NORMALIZED)
+            await doc.write_text(normalized_text, DocState.NORMALIZED)
 
         return await self.read_doc(doc_id)
 
@@ -137,16 +137,16 @@ class DocService:
         result = await self.db.execute(stmt)
         return result.scalars().all()
 
-    async def read_doc_text(self, doc_id: int, stage: DocStage) -> str | None:
+    async def read_doc_text(self, doc_id: int, state: DocState) -> str | None:
         """获取文档文本内容"""
         doc = await self.read_doc(doc_id)
         if doc is None:
             return None
 
-        if not getattr(doc, stage):
+        if doc.state < state:
             return None
 
-        return await doc.read_text(stage)
+        return await doc.read_text(state)
 
     async def delete_doc(self, doc_id: int) -> bool:
         """删除文档"""

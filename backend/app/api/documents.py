@@ -4,7 +4,7 @@ from ..dependencies.documents import get_doc, get_doc_svc, get_docs
 from ..schemas.document import (
     DocCreate,
     DocResponse,
-    DocStage,
+    DocState,
     DocUpdate,
     DocUploadResult,
 )
@@ -111,8 +111,8 @@ async def read_doc_text(
     doc_svc: DocService = Depends(get_doc_svc),
 ) -> str:
     """获取文档文本内容"""
-    stage = DocStage.NORMALIZED if normalized else DocStage.EXTRACTED
-    text = await doc_svc.read_doc_text(doc_id, stage)
+    state = DocState.NORMALIZED if normalized else DocState.EXTRACTED
+    text = await doc_svc.read_doc_text(doc_id, state)
     if text is None:
         raise HTTPException(status_code=404, detail="Document text not found")
     return text

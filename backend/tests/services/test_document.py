@@ -1,7 +1,7 @@
 import pytest
 
 from app.schemas.base import SetOperation
-from app.schemas.document import DocCreate, DocUpdate
+from app.schemas.document import DocCreate, DocState, DocUpdate
 from app.schemas.preprocessing import ExtractConfig, NormalizeConfig, OCREngine
 from app.services import DocService
 
@@ -25,6 +25,7 @@ async def test_create_doc(
     assert doc.id is not None
     assert doc.title == "新建文档"
     assert doc.file_type == "pdf"
+    assert doc.state == DocState.UPLOADED
 
     keyword_ids = {kw.id for kw in doc.keywords}
     assert len(keyword_ids) == 2
@@ -98,7 +99,7 @@ async def test_extract_doc_text(
     )
 
     assert doc is not None
-    assert doc.is_extracted
+    assert doc.state == DocState.EXTRACTED
 
 
 @pytest.mark.asyncio
@@ -111,4 +112,4 @@ async def test_normalize_doc_text(sample_doc: int, doc_svc: DocService):
     )
 
     assert doc is not None
-    assert doc.is_normalized
+    assert doc.state == DocState.NORMALIZED

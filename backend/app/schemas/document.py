@@ -11,12 +11,17 @@ class FileType(str, Enum):
     TXT = "txt"
 
 
-class DocStage(str, Enum):
-    """文档处理阶段枚举"""
+class DocState(str, Enum):
+    """文档处理状态"""
 
-    UPLOAD = "upload"
-    EXTRACTED = "is_extracted"
-    NORMALIZED = "is_normalized"
+    UPLOADED = "uploaded"
+    EXTRACTED = "extracted"
+    NORMALIZED = "normalized"
+
+    def __lt__(self, other: str) -> bool:
+        """状态比较：用于判断处理进度"""
+        order = [self.UPLOADED, self.EXTRACTED, self.NORMALIZED]
+        return order.index(self) < order.index(other)
 
 
 class DocBase(BaseModel):
@@ -49,8 +54,7 @@ class DocResponse(DocBase):
 
     id: int = Field(..., description="文档ID")
     file_name: str = Field(..., description="文件名称")
-    is_extracted: bool = Field(..., description="是否已提取文本")
-    is_normalized: bool = Field(..., description="是否已标准化")
+    state: DocState = Field(..., description="文档处理状态")
     word_count: int | None = Field(None, description="文档字数")
     keywords: list[KeywordBrief] = Field(default_factory=list, description="关键词列表")
     created_at: datetime = Field(..., description="创建时间")
