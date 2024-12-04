@@ -2,6 +2,7 @@ import pytest
 from fastapi import UploadFile
 from httpx import AsyncClient
 
+from app.schemas.document import DocState
 from app.schemas.preprocessing import ExtractConfig, NormalizeConfig, OCREngine
 
 
@@ -21,6 +22,11 @@ async def test_create_doc_api(
     assert data["success"] is True
     assert data["document"]["title"] is not None
     assert data["document"]["subject_id"] == 1
+    assert data["document"]["state"] == DocState.UPLOADED
+
+    keywords = data["document"]["keywords"]
+    kw_ids = [kw["id"] for kw in keywords]
+    assert set(kw_ids) == set(sample_keywords[:2])
 
     await client.delete(f"/documents/{data['document']['id']}")
 
@@ -71,7 +77,7 @@ async def test_extract_doc_text_api(
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == sample_doc
-    assert data["is_extracted"]
+    assert data["state"] == DocState.EXTRACTED
 
 
 @pytest.mark.asyncio
@@ -95,7 +101,7 @@ async def test_normalize_doc_text_api(client: AsyncClient, sample_doc: int):
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == sample_doc
-    assert data["is_normalized"]
+    assert data["state"] == DocState.NORMALIZED
 
 
 @pytest.mark.asyncio
