@@ -24,6 +24,7 @@ RE_MULTI_PUNCT = re.compile(r"[，。]+")
 
 def normalize_text(
     text: str | None,
+    *,
     char_threshold: int = 2,
     sentence_threshold: float = 0.9,
 ) -> str:

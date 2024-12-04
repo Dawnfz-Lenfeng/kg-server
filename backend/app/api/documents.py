@@ -1,23 +1,15 @@
-from fastapi import APIRouter, Body, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
-from app.schemas.document import DocUploadResult
-
-from ..database import get_db
-from ..schemas.document import DocCreate, DocDetailResponse, DocResponse, DocUpdate
-from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
-from ..services.document import (
-    create_doc_service,
-    create_docs_service,
-    delete_doc_service,
-    extract_doc_text_service,
-    get_doc,
-    get_docs,
-    normalize_doc_text_service,
-    read_doc_service,
-    read_docs_service,
-    update_doc_service,
+from ..dependencies.documents import get_doc, get_doc_svc, get_docs
+from ..schemas.document import (
+    DocCreate,
+    DocResponse,
+    DocState,
+    DocUpdate,
+    DocUploadResult,
 )
+from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
+from ..services import DocService
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -25,51 +17,105 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 @router.post("", response_model=DocUploadResult)
 async def create_doc(
     doc: DocCreate = Depends(get_doc),
-    db: Session = Depends(get_db),
+    doc_svc: DocService = Depends(get_doc_svc),
 ) -> DocUploadResult:
     """上传文档"""
-    return await create_doc_service(doc, db)
+    try:
+        document = await doc_svc.create_doc(doc)
+        return DocUploadResult(
+            success=True,
+            document=DocResponse.model_validate(document),
+            error=None,
+        )
+    except Exception as e:
+        return DocUploadResult(success=False, document=None, error=str(e))
 
 
 @router.post("/batch", response_model=list[DocUploadResult])
 async def create_docs(
     docs: list[DocCreate] = Depends(get_docs),
-    db: Session = Depends(get_db),
+    doc_svc: DocService = Depends(get_doc_svc),
 ) -> list[DocUploadResult]:
     """批量上传文档"""
-    return await create_docs_service(docs, db)
+    results = []
+    for doc in docs:
+        try:
+            document = await doc_svc.create_doc(doc)
+            results.append(
+                DocUploadResult(
+                    success=True,
+                    document=DocResponse.model_validate(document),
+                    error=None,
+                )
+            )
+        except Exception as e:
+            results.append(DocUploadResult(success=False, document=None, error=str(e)))
+    return results
 
 
-@router.post("/{doc_id}/extract", response_model=DocDetailResponse)
+@router.put("/{doc_id}/extract", response_model=DocResponse)
 async def extract_doc_text(
     doc_id: int,
     extract_config: ExtractConfig = Body(default=ExtractConfig()),
-    db: Session = Depends(get_db),
+    doc_svc: DocService = Depends(get_doc_svc),
 ):
     """提取文档文本"""
-    return await extract_doc_text_service(doc_id, extract_config, db)
-
-
-@router.post("/{doc_id}/normalize", response_model=DocDetailResponse)
-async def normalize_doc_text(
-    doc_id: int,
-    normalize_config: NormalizeConfig = Body(default=NormalizeConfig()),
-    db: Session = Depends(get_db),
-):
-    """清洗文档文本"""
-    return await normalize_doc_text_service(doc_id, normalize_config, db)
-
-
-@router.get("/{doc_id}", response_model=DocDetailResponse)
-async def read_doc(
-    doc_id: int,
-    db: Session = Depends(get_db),
-):
-    """获取文档"""
-    doc = await read_doc_service(doc_id, db)
+    doc = await doc_svc.extract_doc_text(doc_id, extract_config)
     if doc is None:
         raise HTTPException(status_code=404, detail="Document not found")
     return doc
+
+
+@router.put("/{doc_id}/normalize", response_model=DocResponse)
+async def normalize_doc_text(
+    doc_id: int,
+    normalize_config: NormalizeConfig = Body(default=NormalizeConfig()),
+    doc_svc: DocService = Depends(get_doc_svc),
+):
+    """清洗文档文本"""
+    doc = await doc_svc.normalize_doc_text(doc_id, normalize_config)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return doc
+
+
+@router.put("/{doc_id}", response_model=DocResponse)
+async def update_doc(
+    doc_id: int,
+    doc: DocUpdate,
+    doc_svc: DocService = Depends(get_doc_svc),
+):
+    """更新文档"""
+    updated = await doc_svc.update_doc(doc_id, doc)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return updated
+
+
+@router.get("/{doc_id}", response_model=DocResponse)
+async def read_doc(
+    doc_id: int,
+    doc_svc: DocService = Depends(get_doc_svc),
+):
+    """获取文档"""
+    doc = await doc_svc.read_doc(doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return doc
+
+
+@router.get("/{doc_id}/text")
+async def read_doc_text(
+    doc_id: int,
+    normalized: bool = Query(True, description="是否获取标准化文本"),
+    doc_svc: DocService = Depends(get_doc_svc),
+) -> str:
+    """获取文档文本内容"""
+    state = DocState.NORMALIZED if normalized else DocState.EXTRACTED
+    text = await doc_svc.read_doc_text(doc_id, state)
+    if text is None:
+        raise HTTPException(status_code=404, detail="Document text not found")
+    return text
 
 
 @router.get("", response_model=list[DocResponse])
@@ -77,31 +123,18 @@ async def read_docs(
     skip: int = 0,
     limit: int = 10,
     subject_id: int | None = None,
-    db: Session = Depends(get_db),
+    doc_svc: DocService = Depends(get_doc_svc),
 ):
     """获取文档列表"""
-    return await read_docs_service(skip, limit, subject_id, db)
-
-
-@router.put("/{doc_id}", response_model=DocResponse)
-async def update_doc(
-    doc_id: int,
-    doc: DocUpdate,
-    db: Session = Depends(get_db),
-):
-    """更新文档"""
-    updated = await update_doc_service(doc_id, doc, db)
-    if updated is None:
-        raise HTTPException(status_code=404, detail="Document not found")
-    return updated
+    return await doc_svc.read_docs(skip, limit, subject_id)
 
 
 @router.delete("/{doc_id}")
 async def delete_doc(
     doc_id: int,
-    db: Session = Depends(get_db),
+    doc_svc: DocService = Depends(get_doc_svc),
 ):
     """删除文档"""
-    if not await delete_doc_service(doc_id, db):
+    if not await doc_svc.delete_doc(doc_id):
         raise HTTPException(status_code=404, detail="Document not found")
     return {"message": "Document deleted"}

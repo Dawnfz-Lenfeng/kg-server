@@ -1,259 +1,160 @@
-import asyncio
-import os
-import uuid
-from pathlib import Path
-from typing import Sequence, cast
+from typing import Sequence
 
-from fastapi import File, Form, HTTPException, UploadFile
+import aiofiles
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from ..config import settings
 from ..database import transaction
-from ..models.document import Document
-from ..models.keyword import Keyword
+from ..models import Document, Keyword
 from ..preprocessing import extract_text, normalize_text
-from ..schemas.document import (
-    DocCreate,
-    DocDetailResponse,
-    DocUpdate,
-    DocUploadResult,
-    FileType,
-)
+from ..schemas.document import DocCreate, DocState, DocUpdate
 from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
 
 
-def get_unique_filename(original_name: str) -> str:
-    """生成唯一文件名"""
-    stem = Path(original_name).stem
-    suffix = Path(original_name).suffix
-    return f"{stem}_{uuid.uuid4().hex[:8]}{suffix}"
+class DocService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
 
-
-async def save_uploaded_file(file: UploadFile) -> str:
-    """保存上传的文件到指定目录"""
-    unique_filename = get_unique_filename(cast(str, file.filename))
-    file_path = os.path.join(settings.UPLOAD_DIR, unique_filename)
-    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-
-    content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
-
-    return file_path
-
-
-async def get_doc(
-    file: UploadFile = File(...),
-    subject_id: int = Form(..., examples=[1, 2, 3, 4]),
-    title: str | None = Form(None),
-    file_type: FileType | None = Form(None),
-    keyword_ids: list[int] | None = Form(None, examples=[[1, 2]]),
-):
-    """依赖函数，解析文档上传的表单数据"""
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="File name is required")
-
-    suffix = Path(file.filename).suffix[1:]
-    return DocCreate(
-        title=title or Path(file.filename).stem,
-        file_path=await save_uploaded_file(file),
-        file_type=file_type or FileType(suffix),
-        subject_id=subject_id,
-        keyword_ids=keyword_ids,
-    )
-
-
-async def get_docs(
-    files: list[UploadFile] = File(...),
-    subject_id: int = Form(..., examples=[1, 2, 3, 4]),
-    titles: list[str] | None = Form(None),
-    file_types: list[FileType] | None = Form(None),
-) -> list[DocCreate]:
-    if titles is not None and len(files) != len(titles):
-        raise HTTPException(status_code=400, detail="File and title count mismatch")
-
-    if file_types is not None and len(files) != len(file_types):
-        raise HTTPException(status_code=400, detail="File and file type count mismatch")
-
-    tasks = [
-        get_doc(
-            file=file,
-            title=titles[i] if titles is not None else None,
-            file_type=file_types[i] if file_types is not None else None,
-            subject_id=subject_id,
-            keyword_ids=None,
+    async def create_doc(self, doc_create: DocCreate) -> Document:
+        """创建文档"""
+        db_doc = Document(
+            **doc_create.model_dump(exclude={"keyword_ids"}, exclude_unset=True)
         )
-        for i, file in enumerate(files)
-    ]
+        db_doc.create_dirs()
+        try:
+            async with transaction(self.db):
+                if doc_create.keyword_ids:
+                    stmt = select(Keyword).where(Keyword.id.in_(doc_create.keyword_ids))
+                    keywords = set((await self.db.execute(stmt)).scalars().all())
+                    db_doc.keywords = keywords
 
-    result = await asyncio.gather(*tasks)
-    return result
+                self.db.add(db_doc)
 
+            await self.db.refresh(db_doc)
 
-async def create_doc_service(
-    doc: DocCreate,
-    db: Session,
-) -> DocUploadResult:
-    """创建文档"""
-    try:
-        with transaction(db):
-            db_doc = Document(
-                **doc.model_dump(exclude={"keyword_ids"}, exclude_unset=True)
-            )
+            doc = await self.read_doc(db_doc.id)
+            if doc is None:
+                raise Exception("Create doc failed.")
 
-            if doc.keyword_ids:
-                stmt = select(Keyword).where(Keyword.id.in_(doc.keyword_ids))
-                keywords = set(db.execute(stmt).scalars().all())
-                db_doc.keywords = keywords
+            return doc
 
-            db.add(db_doc)
+        except Exception as e:
+            file_path = db_doc.upload_path
+            if file_path.exists():
+                file_path.unlink()
+            raise e
 
-        db.refresh(db_doc)
-        return DocUploadResult(
-            success=True, document=cast(DocDetailResponse, db_doc), error=None
-        )
+    async def extract_doc_text(
+        self, doc_id: int, extract_config: ExtractConfig
+    ) -> Document | None:
+        """提取文档文本"""
+        doc = await self.read_doc(doc_id)
+        if doc is None:
+            return None
 
-    except Exception as e:
-        if os.path.exists(doc.file_path):
-            os.remove(doc.file_path)
-        return DocUploadResult(success=False, document=None, error=str(e))
-
-
-async def create_docs_service(
-    docs: list[DocCreate],
-    db: Session,
-) -> list[DocUploadResult]:
-    """批量上传文档"""
-    tasks = [create_doc_service(doc, db) for doc in docs]
-
-    results = await asyncio.gather(*tasks)
-    return results
-
-
-async def extract_doc_text_service(
-    doc_id: int,
-    extract_config: ExtractConfig,
-    db: Session,
-) -> Document | None:
-    """提取文档文本"""
-    doc = await read_doc_service(doc_id, db)
-    if doc is None:
-        return None
-
-    try:
-        doc.origin_text = extract_text(
-            doc.file_path,
+        text = extract_text(
+            doc.upload_path,
             file_type=doc.file_type,
             **extract_config.model_dump(),
         )
-        with transaction(db):
-            db.add(doc)
 
-        db.refresh(doc)
-        return doc
-    except Exception as e:
-        raise HTTPException(
-            status_code=400, detail=f"Text extracting failed: {str(e)}"
-        ) from e
+        async with transaction(self.db):
+            await doc.write_text(text, DocState.EXTRACTED)
 
+        return await self.read_doc(doc_id)
 
-async def normalize_doc_text_service(
-    doc_id: int,
-    normalize_config: NormalizeConfig,
-    db: Session,
-) -> Document | None:
-    """标准化文档文本"""
-    doc = await read_doc_service(doc_id, db)
-    if doc is None:
-        return None
+    async def normalize_doc_text(
+        self, doc_id: int, normalize_config: NormalizeConfig
+    ) -> Document | None:
+        """标准化文档文本"""
+        doc = await self.read_doc(doc_id)
+        if doc is None or doc.state < DocState.EXTRACTED:
+            return None
 
-    doc.processed_text = normalize_text(
-        doc.origin_text,
-        **normalize_config.model_dump(),
-    )
+        async with aiofiles.open(doc.extracted_path, "r", encoding="utf-8") as f:
+            raw_text = await f.read()
 
-    with transaction(db):
-        db.add(doc)
+        normalized_text = normalize_text(
+            raw_text,
+            **normalize_config.model_dump(),
+        )
 
-    db.refresh(doc)
-    return doc
+        async with transaction(self.db):
+            await doc.write_text(normalized_text, DocState.NORMALIZED)
 
+        return await self.read_doc(doc_id)
 
-async def read_doc_service(
-    doc_id: int,
-    db: Session,
-) -> Document | None:
-    """获取单个文档"""
-    stmt = (
-        select(Document)
-        .where(Document.id == doc_id)
-        .options(selectinload(Document.keywords))
-    )
-    result = db.execute(stmt)
-    return result.scalar_one_or_none()
+    async def update_doc(self, doc_id: int, doc_update: DocUpdate) -> Document | None:
+        """更新文档信息"""
+        doc = await self.read_doc(doc_id)
+        if doc is None:
+            return None
 
+        async with transaction(self.db):
+            update_data = doc_update.model_dump(
+                exclude={"keywords"}, exclude_unset=True
+            )
+            for key, value in update_data.items():
+                setattr(doc, key, value)
 
-async def read_docs_service(
-    skip: int,
-    limit: int,
-    subject_id: int | None,
-    db: Session,
-) -> Sequence[Document]:
-    """获取文档列表"""
-    stmt = select(Document).options(selectinload(Document.keywords))  # 预加载关键词
-    if subject_id is not None:
-        stmt = stmt.where(Document.subject_id == subject_id)
-    stmt = stmt.offset(skip).limit(limit)
-    result = db.execute(stmt)
-    return result.scalars().all()
+            if doc_update.keywords is not None:
+                keywords_update = doc_update.keywords
 
+                if keywords_update.add:
+                    stmt = select(Keyword).where(Keyword.id.in_(keywords_update.add))
+                    keywords_to_add = set((await self.db.execute(stmt)).scalars().all())
+                    doc.keywords |= keywords_to_add
 
-async def update_doc_service(
-    doc_id: int,
-    doc_update: DocUpdate,
-    db: Session,
-) -> Document | None:
-    """更新文档信息，包括基本信息和关键词"""
-    doc = await read_doc_service(doc_id, db)
-    if doc is None:
-        return None
+                if keywords_update.remove:
+                    stmt = select(Keyword).where(Keyword.id.in_(keywords_update.remove))
+                    keywords_to_remove = set(
+                        (await self.db.execute(stmt)).scalars().all()
+                    )
+                    doc.keywords -= keywords_to_remove
 
-    with transaction(db):
-        update_data = doc_update.model_dump(exclude={"keywords"}, exclude_unset=True)
-        for key, value in update_data.items():
-            setattr(doc, key, value)
+        return await self.read_doc(doc_id)
 
-        if doc_update.keywords is not None:
-            keywords_update = doc_update.keywords
+    async def read_doc(self, doc_id: int) -> Document | None:
+        """获取单个文档"""
+        stmt = (
+            select(Document)
+            .where(Document.id == doc_id)
+            .options(selectinload(Document.keywords))
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
 
-            if keywords_update.add:
-                stmt = select(Keyword).where(Keyword.id.in_(keywords_update.add))
-                keywords_to_add = set(db.execute(stmt).scalars().all())
-                doc.keywords |= keywords_to_add
+    async def read_docs(
+        self, skip: int, limit: int, subject_id: int | None
+    ) -> Sequence[Document]:
+        """获取文档列表"""
+        stmt = select(Document).options(selectinload(Document.keywords))
+        if subject_id is not None:
+            stmt = stmt.where(Document.subject_id == subject_id)
+        stmt = stmt.offset(skip).limit(limit)
+        result = await self.db.execute(stmt)
+        return result.scalars().all()
 
-            if keywords_update.remove:
-                stmt = select(Keyword).where(Keyword.id.in_(keywords_update.remove))
-                keywords_to_remove = set(db.execute(stmt).scalars().all())
-                doc.keywords -= keywords_to_remove
+    async def read_doc_text(self, doc_id: int, state: DocState) -> str | None:
+        """获取文档文本内容"""
+        doc = await self.read_doc(doc_id)
+        if doc is None:
+            return None
 
-        db.add(doc)
+        if doc.state < state:
+            return None
 
-    db.refresh(doc)
-    return doc
+        return await doc.read_text(state)
 
+    async def delete_doc(self, doc_id: int) -> bool:
+        """删除文档"""
+        doc = await self.read_doc(doc_id)
+        if doc is None:
+            return False
 
-async def delete_doc_service(
-    doc_id: int,
-    db: Session,
-) -> bool:
-    """删除文档"""
-    stmt = select(Document).where(Document.id == doc_id)
-    db_doc = db.execute(stmt).scalar_one_or_none()
+        doc.delete_dirs()
 
-    if db_doc is not None:
-        with transaction(db):
-            db.delete(db_doc)
+        async with transaction(self.db):
+            await self.db.delete(doc)
         return True
-
-    return False
