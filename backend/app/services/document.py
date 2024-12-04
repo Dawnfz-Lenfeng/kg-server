@@ -1,4 +1,3 @@
-import os
 from typing import Sequence
 
 import aiofiles
@@ -42,8 +41,8 @@ class DocService:
 
         except Exception as e:
             file_path = db_doc.upload_path
-            if os.path.exists(file_path):
-                os.remove(file_path)
+            if file_path.exists():
+                file_path.unlink()
             raise e
 
     async def extract_doc_text(
