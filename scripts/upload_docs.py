@@ -33,7 +33,33 @@ async def upload_file(
 async def upload_files(
     session: aiohttp.ClientSession, paths: list[Path], subject_id: int
 ) -> list[int]:
-    pass
+    result_ids = []
+    for path in paths:
+        data = aiohttp.FormData()
+        data.add_field("file", path.read_bytes(), filename=path.name)
+        data.add_field("subject_id", str(subject_id))
+        try:
+            # 发送文件上传请求
+            async with session.post(API_URL, data=data) as resp:
+                if resp.status != 200:
+                    print(f"✗ 上传失败: {path.name}, 状态码: {resp.status}")
+                    result_ids.append(None)
+                    continue
+
+                result = await resp.json()
+                if not result["success"]:
+                    print(f"✗ 上传失败: {path.name}, 错误: {result['error']}")
+                    result_ids.append(None)
+                    continue
+
+                print(f"✓ 上传成功: {path.name}")
+                result_ids.append(result["document"]["id"])
+
+        except Exception as e:
+            print(f"✗ 上传失败: {path.name}, 错误: {e}")
+            result_ids.append(None)
+
+    return result_ids
 
 
 async def process_file(
