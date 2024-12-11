@@ -51,7 +51,10 @@ async def create_keywords_for_doc(
 
         return doc
     except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="File must be UTF-8 encoded")
+        raise HTTPException(
+            status_code=400,
+            detail="File encoding could not be determined or is not supported",
+        )
 
 
 @router.get("/{keyword_id}", response_model=KeywordDetailResponse)
@@ -97,5 +100,16 @@ async def delete_keyword(
 ):
     """删除关键词"""
     if not await kw_svc.delete_keyword(keyword_id):
+        raise HTTPException(status_code=404, detail="Keyword not found")
+    return {"message": "Keyword deleted"}
+
+
+@router.delete("/name/{keyword_name}")
+async def delete_keyword_by_name(
+    keyword_name: str,
+    kw_svc: KeywordService = Depends(get_kw_svc),
+):
+    """通过名称删除关键词"""
+    if not await kw_svc.delete_keyword_by_name(keyword_name):
         raise HTTPException(status_code=404, detail="Keyword not found")
     return {"message": "Keyword deleted"}

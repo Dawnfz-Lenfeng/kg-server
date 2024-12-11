@@ -11,7 +11,10 @@ async def test_create_keyword(client: AsyncClient):
     )
 
     assert response.status_code == 200
-    assert response.json()["name"] == "测试关键词"
+    keyword = response.json()
+    assert keyword["name"] == "测试关键词"
+
+    await client.delete(f"/keywords/{keyword['id']}")
 
 
 async def test_create_keywords_for_doc(
@@ -20,22 +23,26 @@ async def test_create_keywords_for_doc(
     """测试为文档创建关键词"""
     # 创建测试文件
     keywords_file = tmp_path / "keywords.txt"
-    keywords_file.write_text("关键词1\n关键词2\n关键词3\n")
+    keywords_file.write_text("关键词1\n关键词2\n关键词3\n", encoding="utf-8")
 
-    with open(keywords_file, "rb") as f:
-        response = await client.post(
-            f"/keywords/{sample_doc}",
-            files={"file": ("keywords.txt", f, "text/plain")},
-        )
+    response = await client.post(
+        f"/keywords/{sample_doc}",
+        files={"file": ("keywords.txt", keywords_file.read_bytes())},
+    )
 
     assert response.status_code == 200
+
     assert len(response.json()["keywords"]) == 3
+
+    for name in ["关键词1", "关键词2", "关键词3"]:
+        await client.delete(f"/keywords/name/{name}")
 
 
 async def test_read_keywords(client: AsyncClient):
     """测试读取关键词列表"""
     # 创建测试数据
-    for name in ["关键词1", "关键词2", "测试3"]:
+    names = ["关键词1", "关键词2", "测试3"]
+    for name in names:
         await client.post("/keywords", json={"name": name})
 
     # 测试基本查询
@@ -47,3 +54,6 @@ async def test_read_keywords(client: AsyncClient):
     response = await client.get("/keywords?search=关键词")
     assert response.status_code == 200
     assert len(response.json()) == 2
+
+    for name in names:
+        await client.delete(f"/keywords/name/{name}")

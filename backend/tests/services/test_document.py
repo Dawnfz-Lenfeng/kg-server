@@ -1,6 +1,5 @@
 import pytest
 
-from app.schemas.base import SetOperation
 from app.schemas.document import DocCreate, DocState, DocUpdate
 from app.schemas.preprocessing import ExtractConfig, NormalizeConfig, OCREngine
 from app.services import DocService
@@ -8,7 +7,6 @@ from app.services import DocService
 
 @pytest.mark.asyncio
 async def test_create_doc(
-    sample_keywords: list[int],
     uploaded_file_name: str,
     doc_svc: DocService,
 ):
@@ -18,7 +16,6 @@ async def test_create_doc(
         file_name=uploaded_file_name,
         file_type="pdf",
         subject_id=1,
-        keyword_ids=sample_keywords[0:2],
     )
     doc = await doc_svc.create_doc(doc_create)
 
@@ -26,11 +23,6 @@ async def test_create_doc(
     assert doc.title == "新建文档"
     assert doc.file_type == "pdf"
     assert doc.state == DocState.UPLOADED
-
-    keyword_ids = {kw.id for kw in doc.keywords}
-    assert len(keyword_ids) == 2
-    assert sample_keywords[0] in keyword_ids
-    assert sample_keywords[1] in keyword_ids
 
     await doc_svc.delete_doc(doc_id=doc.id)
 
@@ -44,36 +36,22 @@ async def test_read_doc(sample_doc: int, doc_svc: DocService):
     assert doc.id == sample_doc
     assert doc.title
 
-    assert len(doc.keywords) == 2
-
 
 @pytest.mark.asyncio
 async def test_update_doc(
     sample_doc: int,
-    sample_keywords: list[int],
     doc_svc: DocService,
 ):
     """测试修改文档"""
     new_title = "更新后的标题"
-    keywords_update = SetOperation(
-        add=[sample_keywords[2]],  # 添加第三个关键词
-        remove=[sample_keywords[0]],  # 移除第一个关键词
-    )
 
     updated = await doc_svc.update_doc(
         doc_id=sample_doc,
-        doc_update=DocUpdate(title=new_title, keywords=keywords_update),
+        doc_update=DocUpdate(title=new_title),
     )
 
     assert updated is not None
     assert updated.title == new_title
-    assert updated.id == sample_doc
-
-    keyword_ids = {kw.id for kw in updated.keywords}
-    assert len(keyword_ids) == 2
-    assert sample_keywords[2] in keyword_ids  # 新添加的关键词
-    assert sample_keywords[1] in keyword_ids  # 未变动的关键词
-    assert sample_keywords[0] not in keyword_ids  # 已移除的关键词
 
 
 @pytest.mark.asyncio

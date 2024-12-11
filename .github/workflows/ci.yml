@@ -65,7 +65,6 @@ jobs:
         cache: 'pip'
         cache-dependency-path: |
           backend/pyproject.toml
-          backend/setup.cfg
 
     - name: Install OCR dependencies
       run: |

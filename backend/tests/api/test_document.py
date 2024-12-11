@@ -7,14 +7,12 @@ from app.schemas.preprocessing import ExtractConfig, NormalizeConfig, OCREngine
 
 
 @pytest.mark.asyncio
-async def test_create_doc_api(
-    client: AsyncClient, pdf_file: UploadFile, sample_keywords: list[int]
-):
+async def test_create_doc_api(client: AsyncClient, pdf_file: UploadFile):
     """测试文档上传API"""
     response = await client.post(
         "/documents",
         files={"file": (pdf_file.filename, await pdf_file.read())},
-        data={"subject_id": 1, "keyword_ids": sample_keywords[:2]},
+        data={"subject_id": 1},
     )
 
     assert response.status_code == 200
@@ -23,10 +21,6 @@ async def test_create_doc_api(
     assert data["document"]["title"] is not None
     assert data["document"]["subject_id"] == 1
     assert data["document"]["state"] == DocState.UPLOADED
-
-    keywords = data["document"]["keywords"]
-    kw_ids = [kw["id"] for kw in keywords]
-    assert set(kw_ids) == set(sample_keywords[:2])
 
     await client.delete(f"/documents/{data['document']['id']}")
 
@@ -142,13 +136,9 @@ async def test_read_docs_with_subject_api(client: AsyncClient):
 async def test_update_doc_api(
     client: AsyncClient,
     sample_doc: int,
-    sample_keywords: list[int],
 ):
     """测试更新文档API"""
-    update_data = {
-        "title": "Updated Title",
-        "keywords": {"add": [sample_keywords[2]], "remove": [sample_keywords[0]]},
-    }
+    update_data = {"title": "Updated Title"}
 
     response = await client.put(
         f"/documents/{sample_doc}",
@@ -158,11 +148,6 @@ async def test_update_doc_api(
     assert response.status_code == 200
     data = response.json()
 
-    keywords = data["keywords"]
-    assert keywords
-    keyword_ids = [keyword["id"] for keyword in keywords]
-    assert sample_keywords[2] in keyword_ids
-    assert sample_keywords[0] not in keyword_ids
     assert data["title"] == update_data["title"]
 
 

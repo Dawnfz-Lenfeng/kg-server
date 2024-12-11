@@ -21,7 +21,6 @@ async def get_doc(
     subject_id: int = Form(...),
     title: str | None = Form(None),
     file_type: FileType | None = Form(None),
-    keyword_ids: list[int] | None = Form(None),
 ) -> DocCreate:
     """解析文档上传的表单数据"""
     if not file.filename:
@@ -33,7 +32,6 @@ async def get_doc(
         file_name=await _save_uploaded_file(file),
         file_type=file_type or FileType(suffix),
         subject_id=subject_id,
-        keyword_ids=keyword_ids,
     )
 
 
@@ -53,10 +51,9 @@ async def get_docs(
     tasks = [
         get_doc(
             file=file,
+            subject_id=subject_id,
             title=titles[i] if titles is not None else None,
             file_type=file_types[i] if file_types is not None else None,
-            subject_id=subject_id,
-            keyword_ids=None,
         )
         for i, file in enumerate(files)
     ]

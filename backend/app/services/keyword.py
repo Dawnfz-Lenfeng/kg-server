@@ -6,7 +6,6 @@ from sqlalchemy.orm import selectinload
 
 from ..database import transaction
 from ..exceptions.keyword import KeywordAlreadyExistsError, KeywordCreationError
-from ..models.document import Document
 from ..models.keyword import Keyword
 from ..schemas.keyword import KeywordCreate, KeywordUpdate
 
@@ -25,13 +24,6 @@ class KeywordService:
 
         async with transaction(self.db):
             db_keyword = Keyword(name=keyword_create.name)
-            if keyword_create.document_ids:
-                stmt = select(Document).where(
-                    Document.id.in_(keyword_create.document_ids)
-                )
-                documents = set((await self.db.execute(stmt)).scalars().all())
-                db_keyword.documents = documents
-
             self.db.add(db_keyword)
 
         await self.db.refresh(db_keyword)
@@ -63,7 +55,7 @@ class KeywordService:
         return result.scalar_one_or_none()
 
     async def read_keywords(
-        self, skip: int, limit: int, search: str | None
+        self, skip: int, limit: int, search: str | None = None
     ) -> Sequence[Keyword]:
         """获取关键词列表"""
         stmt = select(Keyword).options(selectinload(Keyword.documents))
@@ -90,21 +82,6 @@ class KeywordService:
                     )
                 db_keyword.name = keyword_update.name
 
-            if keyword_update.documents is not None:
-                if keyword_update.documents.add:
-                    stmt = select(Document).where(
-                        Document.id.in_(keyword_update.documents.add)
-                    )
-                    docs_to_add = set((await self.db.execute(stmt)).scalars().all())
-                    db_keyword.documents |= docs_to_add
-
-                if keyword_update.documents.remove:
-                    stmt = select(Document).where(
-                        Document.id.in_(keyword_update.documents.remove)
-                    )
-                    docs_to_remove = set((await self.db.execute(stmt)).scalars().all())
-                    db_keyword.documents -= docs_to_remove
-
             self.db.add(db_keyword)
 
         return await self.read_keyword(keyword_id)
@@ -112,6 +89,16 @@ class KeywordService:
     async def delete_keyword(self, keyword_id: int) -> bool:
         """删除关键词"""
         db_keyword = await self.read_keyword(keyword_id)
+        if db_keyword is None:
+            return False
+
+        async with transaction(self.db):
+            await self.db.delete(db_keyword)
+        return True
+
+    async def delete_keyword_by_name(self, name: str):
+        """通过名称删除关键词"""
+        db_keyword = await self.read_keyword_by_name(name)
         if db_keyword is None:
             return False
 

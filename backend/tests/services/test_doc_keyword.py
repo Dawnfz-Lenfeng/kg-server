@@ -19,6 +19,9 @@ async def test_create_keywords_for_doc(doc_kw_svc: DocKeywordService, sample_doc
     assert len(doc.keywords) == 3
     assert all(k.name in keywords for k in doc.keywords)
 
+    for keyword in keywords:
+        await doc_kw_svc.kw_svc.delete_keyword_by_name(keyword)
+
 
 async def test_create_keywords_for_nonexistent_doc(doc_kw_svc: DocKeywordService):
     """测试为不存在的文档创建关键词"""

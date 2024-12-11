@@ -2,7 +2,6 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions.keyword import KeywordAlreadyExistsError
-from app.models import Keyword
 from app.schemas.keyword import KeywordCreate
 from app.services import KeywordService
 
@@ -17,15 +16,17 @@ async def test_create_keyword(kw_svc: KeywordService):
     keyword = await kw_svc.create_keyword(KeywordCreate(name="测试关键词"))
 
     assert keyword.name == "测试关键词"
-    assert isinstance(keyword, Keyword)
+    await kw_svc.delete_keyword(keyword.id)
 
 
 async def test_create_duplicate_keyword(kw_svc: KeywordService):
     """测试创建重复关键词"""
-    await kw_svc.create_keyword(KeywordCreate(name="重复关键词"))
+    keyword = await kw_svc.create_keyword(KeywordCreate(name="重复关键词"))
 
     with pytest.raises(KeywordAlreadyExistsError):
         await kw_svc.create_keyword(KeywordCreate(name="重复关键词"))
+
+    await kw_svc.delete_keyword(keyword.id)
 
 
 async def test_read_keyword(kw_svc: KeywordService):
@@ -35,6 +36,8 @@ async def test_read_keyword(kw_svc: KeywordService):
 
     assert keyword is not None
     assert keyword.name == "测试关键词"
+
+    await kw_svc.delete_keyword(keyword.id)
 
 
 async def test_read_keywords(kw_svc: KeywordService):
@@ -51,3 +54,6 @@ async def test_read_keywords(kw_svc: KeywordService):
     # 测试搜索
     keywords = await kw_svc.read_keywords(skip=0, limit=10, search="关键词")
     assert len(keywords) == 2
+
+    for name in names:
+        await kw_svc.delete_keyword_by_name(name)
