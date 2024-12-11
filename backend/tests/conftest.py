@@ -8,8 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.database import Base
 from app.schemas.document import DocCreate
-from app.schemas.keyword import KeywordCreate
-from app.services import DocService, KeywordService
+from app.services import DocService
 
 SAMPLES_DIR = Path(__file__).parent / "samples"
 TEST_DB_PATH = Path(__file__).parent / "test.db"
@@ -63,12 +62,6 @@ def doc_svc(db: AsyncSession):
 
 
 @pytest.fixture
-def kw_svc(db: AsyncSession):
-    """创建关键词服务实例"""
-    return KeywordService(db)
-
-
-@pytest.fixture
 def pdf_file():
     """提供测试用PDF文件"""
     pdf_path = SAMPLES_DIR / "sample.pdf"
@@ -101,21 +94,6 @@ def pdf_files():
 
 
 @pytest_asyncio.fixture
-async def sample_keywords(kw_svc: KeywordService):
-    """创建测试用关键词"""
-    keyword_ids: list[int] = []
-
-    for i in range(3):
-        kw = await kw_svc.create_keyword(KeywordCreate(name=f"Keyword{i}"))
-        keyword_ids.append(kw.id)
-
-    yield keyword_ids
-
-    for kw_id in keyword_ids:
-        await kw_svc.delete_keyword(kw_id)
-
-
-@pytest_asyncio.fixture
 async def uploaded_file_name(pdf_file: UploadFile) -> str:
     from app.dependencies.documents import _save_uploaded_file
 
@@ -124,7 +102,6 @@ async def uploaded_file_name(pdf_file: UploadFile) -> str:
 
 @pytest_asyncio.fixture
 async def sample_doc(
-    sample_keywords: list[int],
     uploaded_file_name: str,
     doc_svc: DocService,
 ):
@@ -134,9 +111,9 @@ async def sample_doc(
         file_name=uploaded_file_name,
         file_type="pdf",
         subject_id=1,
-        keyword_ids=sample_keywords[:2],
     )
     document = await doc_svc.create_doc(doc)
     assert document is not None
-    yield document.id
-    await doc_svc.delete_doc(document.id)
+    doc_id = document.id
+    yield doc_id
+    await doc_svc.delete_doc(doc_id)

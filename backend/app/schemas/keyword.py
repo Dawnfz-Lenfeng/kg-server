@@ -12,16 +12,11 @@ class KeywordBase(BaseModel):
 class KeywordCreate(KeywordBase):
     """创建关键词请求模型"""
 
-    document_ids: list[int] | None = Field(
-        None, description="要关联的文档ID列表", examples=[[1, 2, 3]]
-    )
-
 
 class KeywordUpdate(BaseModel):
     """更新关键词请求模型"""
 
     name: str | None = Field(None, description="关键词名称", examples=["深度学习"])
-    documents: SetOperation | None = Field(None, description="文档更新操作")
 
 
 class KeywordResponse(BaseModel):

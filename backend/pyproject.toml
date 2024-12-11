@@ -1,10 +1,55 @@
 [build-system]
-requires = ["setuptools<64"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ckgcus-backend"
+version = "0.1.0"
+description = "Knowledge Graph Construction System Backend"
+authors = [
+    {name = "Dawnfz-Lenfeng", email = "2912706234@qq.com"}
+]
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy[asyncio]",
+    "asyncpg",
+    "aiosqlite",
+    "alembic",
+    "python-multipart",
+    "pydantic",
+    "pydantic-settings",
+    "python-dotenv",
+    "tqdm",
+    "aiofiles",
+    "pdf2image",
+    "pdfplumber",
+    "cnocr[ort-cpu]",
+    "pytesseract",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "httpx",
+    "flake8",
+    "mypy",
+    "black",
+]
+paddleocr = [
+    "paddlepaddle",
+    "paddleocr",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend"] 
 
 [tool.black]
 line-length = 88
-target-version = ['py310']
+target-version = ["py310"]
 exclude = "alembic/versions/"
 
 [tool.isort]

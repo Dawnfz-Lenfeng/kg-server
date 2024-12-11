@@ -1,13 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from ..dependencies.keywords import get_kw_svc
+from ..dependencies.keywords import get_doc_kw_svc, get_keywords, get_kw_svc
+from ..exceptions.keyword import KeywordAlreadyExistsError, KeywordCreationError
+from ..schemas.document import DocResponse
 from ..schemas.keyword import (
     KeywordCreate,
     KeywordDetailResponse,
     KeywordResponse,
     KeywordUpdate,
 )
-from ..services.keyword import KeywordService
+from ..services import DocKeywordService, KeywordService
 
 router = APIRouter(prefix="/keywords", tags=["keywords"])
 
@@ -18,7 +20,32 @@ async def create_keyword(
     kw_svc: KeywordService = Depends(get_kw_svc),
 ):
     """创建关键词"""
-    return await kw_svc.create_keyword(keyword)
+    try:
+        return await kw_svc.create_keyword(keyword)
+    except KeywordAlreadyExistsError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except KeywordCreationError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{doc_id}", response_model=DocResponse)
+async def create_keywords_for_doc(
+    doc_id: int,
+    keywords: list[str] = Depends(get_keywords),
+    doc_kw_svc: DocKeywordService = Depends(get_doc_kw_svc),
+):
+    """创建关键词并关联到文档"""
+    try:
+        doc = await doc_kw_svc.create_keywards_for_doc(doc_id, keywords)
+        if doc is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        return doc
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=400,
+            detail="File encoding could not be determined or is not supported",
+        )
 
 
 @router.get("/{keyword_id}", response_model=KeywordDetailResponse)
@@ -64,5 +91,16 @@ async def delete_keyword(
 ):
     """删除关键词"""
     if not await kw_svc.delete_keyword(keyword_id):
+        raise HTTPException(status_code=404, detail="Keyword not found")
+    return {"message": "Keyword deleted"}
+
+
+@router.delete("/name/{keyword_name}")
+async def delete_keyword_by_name(
+    keyword_name: str,
+    kw_svc: KeywordService = Depends(get_kw_svc),
+):
+    """通过名称删除关键词"""
+    if not await kw_svc.delete_keyword_by_name(keyword_name):
         raise HTTPException(status_code=404, detail="Keyword not found")
     return {"message": "Keyword deleted"}

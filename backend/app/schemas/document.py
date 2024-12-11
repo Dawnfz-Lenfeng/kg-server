@@ -38,7 +38,6 @@ class DocCreate(DocBase):
     """创建文档请求模型"""
 
     file_name: str = Field(..., description="文件名称")
-    keyword_ids: list[int] | None = Field(default=None, description="关键词ID列表")
 
 
 class DocUpdate(BaseModel):
@@ -46,7 +45,7 @@ class DocUpdate(BaseModel):
 
     title: str | None = Field(None, description="文档标题")
     subject_id: int | None = Field(None, description="学科ID")
-    keywords: SetOperation | None = Field(None, description="关键词更新操作")
+    # keywords: SetOperation | None = Field(None, description="关键词更新操作")
 
 
 class DocResponse(DocBase):

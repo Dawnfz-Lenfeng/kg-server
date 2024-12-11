@@ -65,9 +65,9 @@ jobs:
         cache: 'pip'
         cache-dependency-path: |
           backend/pyproject.toml
-          backend/setup.cfg
 
     - name: Install OCR dependencies
+      if: matrix.test-suite != 'preprocessing'
       run: |
         sudo apt-get update
         sudo apt-get install -y poppler-utils tesseract-ocr tesseract-ocr-chi-sim

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..database import transaction
-from ..models import Document, Keyword
+from ..models import Document
 from ..preprocessing import extract_text, normalize_text
 from ..schemas.document import DocCreate, DocState, DocUpdate
 from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
@@ -24,25 +24,14 @@ class DocService:
         db_doc.create_dirs()
         try:
             async with transaction(self.db):
-                if doc_create.keyword_ids:
-                    stmt = select(Keyword).where(Keyword.id.in_(doc_create.keyword_ids))
-                    keywords = set((await self.db.execute(stmt)).scalars().all())
-                    db_doc.keywords = keywords
-
                 self.db.add(db_doc)
 
             await self.db.refresh(db_doc)
-
-            doc = await self.read_doc(db_doc.id)
-            if doc is None:
-                raise Exception("Create doc failed.")
-
-            return doc
+            return db_doc
 
         except Exception as e:
             file_path = db_doc.upload_path
-            if file_path.exists():
-                file_path.unlink()
+            file_path.unlink(missing_ok=True)
             raise e
 
     async def extract_doc_text(
@@ -62,7 +51,8 @@ class DocService:
         async with transaction(self.db):
             await doc.write_text(text, DocState.EXTRACTED)
 
-        return await self.read_doc(doc_id)
+        await self.db.refresh(doc)
+        return doc
 
     async def normalize_doc_text(
         self, doc_id: int, normalize_config: NormalizeConfig
@@ -83,7 +73,8 @@ class DocService:
         async with transaction(self.db):
             await doc.write_text(normalized_text, DocState.NORMALIZED)
 
-        return await self.read_doc(doc_id)
+        await self.db.refresh(doc)
+        return doc
 
     async def update_doc(self, doc_id: int, doc_update: DocUpdate) -> Document | None:
         """更新文档信息"""
@@ -98,22 +89,8 @@ class DocService:
             for key, value in update_data.items():
                 setattr(doc, key, value)
 
-            if doc_update.keywords is not None:
-                keywords_update = doc_update.keywords
-
-                if keywords_update.add:
-                    stmt = select(Keyword).where(Keyword.id.in_(keywords_update.add))
-                    keywords_to_add = set((await self.db.execute(stmt)).scalars().all())
-                    doc.keywords |= keywords_to_add
-
-                if keywords_update.remove:
-                    stmt = select(Keyword).where(Keyword.id.in_(keywords_update.remove))
-                    keywords_to_remove = set(
-                        (await self.db.execute(stmt)).scalars().all()
-                    )
-                    doc.keywords -= keywords_to_remove
-
-        return await self.read_doc(doc_id)
+        await self.db.refresh(doc)
+        return doc
 
     async def read_doc(self, doc_id: int) -> Document | None:
         """获取单个文档"""
@@ -145,7 +122,7 @@ class DocService:
         if doc.state < state:
             return None
 
-        return await doc.read_text(state)
+        return doc
 
     async def delete_doc(self, doc_id: int) -> bool:
         """删除文档"""
