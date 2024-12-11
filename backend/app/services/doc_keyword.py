@@ -30,7 +30,7 @@ class DocKeywordService:
                 keyword = await self.kw_svc.create_keyword(KeywordCreate(name=name))
             new_keywords.add(keyword)
 
-        await self.db.refresh(doc, ['keywords'])
+        await self.db.refresh(doc, ["keywords"])
         async with transaction(self.db):
             doc.keywords |= new_keywords
 
