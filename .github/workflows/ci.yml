@@ -67,6 +67,7 @@ jobs:
           backend/pyproject.toml
 
     - name: Install OCR dependencies
+      if: matrix.test-suite != 'preprocessing'
       run: |
         sudo apt-get update
         sudo apt-get install -y poppler-utils tesseract-ocr tesseract-ocr-chi-sim
