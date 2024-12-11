@@ -1,11 +1,11 @@
 from typing import Sequence
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..database import transaction
+from ..exceptions.keyword import KeywordAlreadyExistsError, KeywordCreationError
 from ..models.document import Document
 from ..models.keyword import Keyword
 from ..schemas.keyword import KeywordCreate, KeywordUpdate
@@ -19,9 +19,8 @@ class KeywordService:
         """创建关键词"""
         existing = await self.read_keyword_by_name(keyword_create.name)
         if existing:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Keyword '{keyword_create.name}' has already been created",
+            raise KeywordAlreadyExistsError(
+                f"Keyword '{keyword_create.name}' has already been created"
             )
 
         async with transaction(self.db):
@@ -39,7 +38,7 @@ class KeywordService:
 
         keyword = await self.read_keyword(db_keyword.id)
         if keyword is None:
-            raise HTTPException(status_code=500, detail="Failed to create keyword")
+            raise KeywordCreationError("Failed to create keyword")
 
         return keyword
 
@@ -86,9 +85,8 @@ class KeywordService:
             if keyword_update.name and keyword_update.name != db_keyword.name:
                 existing = await self.read_keyword_by_name(keyword_update.name)
                 if existing:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Keyword '{keyword_update.name}' has already been created",
+                    raise KeywordAlreadyExistsError(
+                        f"Keyword '{keyword_update.name}' has already been created"
                     )
                 db_keyword.name = keyword_update.name
 

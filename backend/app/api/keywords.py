@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 
 from ..dependencies.keywords import get_doc_kw_svc, get_kw_svc
+from ..exceptions.keyword import KeywordAlreadyExistsError, KeywordCreationError
 from ..schemas.document import DocResponse
 from ..schemas.keyword import (
     KeywordCreate,
@@ -19,7 +20,12 @@ async def create_keyword(
     kw_svc: KeywordService = Depends(get_kw_svc),
 ):
     """创建关键词"""
-    return await kw_svc.create_keyword(keyword)
+    try:
+        return await kw_svc.create_keyword(keyword)
+    except KeywordAlreadyExistsError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except KeywordCreationError as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/{doc_id}", response_model=DocResponse)
