@@ -1,0 +1,10 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ckgcus_backend"
+# ... 其他项目配置 ...
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend"]  # 指定要包含的包目录
