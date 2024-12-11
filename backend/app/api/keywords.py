@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 
-from ..dependencies.keywords import get_kw_svc
+from ..dependencies.keywords import get_doc_kw_svc, get_kw_svc
+from ..schemas.document import DocResponse
 from ..schemas.keyword import (
     KeywordCreate,
     KeywordDetailResponse,
     KeywordResponse,
     KeywordUpdate,
 )
-from ..services.keyword import KeywordService
+from ..services import DocKeywordService, KeywordService
 
 router = APIRouter(prefix="/keywords", tags=["keywords"])
 
@@ -19,6 +20,32 @@ async def create_keyword(
 ):
     """创建关键词"""
     return await kw_svc.create_keyword(keyword)
+
+
+@router.post("/{doc_id}", response_model=DocResponse)
+async def create_keywords_for_doc(
+    doc_id: int,
+    file: UploadFile = File(...),
+    doc_kw_svc: DocKeywordService = Depends(get_doc_kw_svc),
+):
+    """创建关键词并关联到文档"""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="File name is required")
+
+    if not file.filename.endswith(".txt"):
+        raise HTTPException(status_code=400, detail="Only .txt files are allowed")
+
+    try:
+        content = (await file.read()).decode("utf-8")
+        keywords = [line.strip() for line in content.splitlines() if line.strip()]
+
+        doc = await doc_kw_svc.create_keywards_for_doc(doc_id, keywords)
+        if doc is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        return doc
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="File must be UTF-8 encoded")
 
 
 @router.get("/{keyword_id}", response_model=KeywordDetailResponse)

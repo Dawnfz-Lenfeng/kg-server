@@ -73,8 +73,7 @@ class Document(Base):
         """删除文档所需的所有目录"""
         for state in DocState:
             file_path = self.get_path(state)
-            if file_path.exists():
-                file_path.unlink()
+            file_path.unlink(missing_ok=True)
 
     async def read_text(self, state: DocState) -> str:
         """读取文档文本"""

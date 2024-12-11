@@ -13,7 +13,7 @@ class KeywordCreate(KeywordBase):
     """创建关键词请求模型"""
 
     document_ids: list[int] | None = Field(
-        None, description="要关联的文档ID列表", examples=[[1, 2, 3]]
+        default=None, description="要关联的文档ID列表", examples=[[1, 2, 3]]
     )
 
 

@@ -41,8 +41,7 @@ class DocService:
 
         except Exception as e:
             file_path = db_doc.upload_path
-            if file_path.exists():
-                file_path.unlink()
+            file_path.unlink(missing_ok=True)
             raise e
 
     async def extract_doc_text(
