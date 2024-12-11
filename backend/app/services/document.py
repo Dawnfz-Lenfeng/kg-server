@@ -27,12 +27,7 @@ class DocService:
                 self.db.add(db_doc)
 
             await self.db.refresh(db_doc)
-
-            doc = await self.read_doc(db_doc.id)
-            if doc is None:
-                raise Exception("Create doc failed.")
-
-            return doc
+            return db_doc
 
         except Exception as e:
             file_path = db_doc.upload_path
@@ -56,7 +51,8 @@ class DocService:
         async with transaction(self.db):
             await doc.write_text(text, DocState.EXTRACTED)
 
-        return await self.read_doc(doc_id)
+        await self.db.refresh(doc)
+        return doc
 
     async def normalize_doc_text(
         self, doc_id: int, normalize_config: NormalizeConfig
@@ -77,7 +73,8 @@ class DocService:
         async with transaction(self.db):
             await doc.write_text(normalized_text, DocState.NORMALIZED)
 
-        return await self.read_doc(doc_id)
+        await self.db.refresh(doc)
+        return doc
 
     async def update_doc(self, doc_id: int, doc_update: DocUpdate) -> Document | None:
         """更新文档信息"""
@@ -92,7 +89,8 @@ class DocService:
             for key, value in update_data.items():
                 setattr(doc, key, value)
 
-        return await self.read_doc(doc_id)
+        await self.db.refresh(doc)
+        return doc
 
     async def read_doc(self, doc_id: int) -> Document | None:
         """获取单个文档"""
@@ -124,7 +122,7 @@ class DocService:
         if doc.state < state:
             return None
 
-        return await doc.read_text(state)
+        return doc
 
     async def delete_doc(self, doc_id: int) -> bool:
         """删除文档"""

@@ -27,12 +27,7 @@ class KeywordService:
             self.db.add(db_keyword)
 
         await self.db.refresh(db_keyword)
-
-        keyword = await self.read_keyword(db_keyword.id)
-        if keyword is None:
-            raise KeywordCreationError("Failed to create keyword")
-
-        return keyword
+        return db_keyword
 
     async def read_keyword(self, keyword_id: int) -> Keyword | None:
         """获取单个关键词"""
@@ -84,7 +79,8 @@ class KeywordService:
 
             self.db.add(db_keyword)
 
-        return await self.read_keyword(keyword_id)
+        await self.db.refresh(db_keyword)
+        return db_keyword
 
     async def delete_keyword(self, keyword_id: int) -> bool:
         """删除关键词"""

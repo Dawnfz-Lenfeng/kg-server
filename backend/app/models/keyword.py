@@ -30,6 +30,7 @@ class Keyword(Base):
         secondary="document_keywords",
         collection_class=set,
         back_populates="keywords",
+        lazy="selectin",
     )
 
     @property
