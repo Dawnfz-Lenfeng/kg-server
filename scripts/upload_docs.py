@@ -40,7 +40,7 @@ async def upload_files(
         data.add_field("subject_id", str(subject_id))
         try:
             # 发送文件上传请求
-            async with session.post(API_URL, data=data) as resp:
+            async with session.post(f"{API_URL}/batch", data=data) as resp:
                 if resp.status != 200:
                     print(f"✗ 上传失败: {path.name}, 状态码: {resp.status}")
                     result_ids.append(None)
