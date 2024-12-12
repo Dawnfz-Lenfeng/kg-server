@@ -3,7 +3,6 @@ import asyncio
 from pathlib import Path
 
 import aiohttp
-from tqdm import tqdm
 
 SUPPORTED_TYPES = {".pdf", ".txt"}
 API_URL = "http://localhost:8000/api/v1/documents"
@@ -33,51 +32,47 @@ async def upload_file(
 async def upload_files(
     session: aiohttp.ClientSession, paths: list[Path], subject_id: int
 ) -> list[int]:
-
     data = aiohttp.FormData()
-    for i, path in enumerate(paths):
-        try:
-            data.add_field(
-                f"file{i}",
-                path.read_bytes(),
-                filename=path.name,
-            )
-        except Exception as e:
-            print(f"✗ 读取文件失败: {path.name}, 错误: {e}")
-            continue
-
+    for path in paths:
+        data.add_field(
+            f"files",
+            path.read_bytes(),
+            filename=path.name,
+        )
     data.add_field("subject_id", str(subject_id))
 
-    try:
-        async with session.post(f"{API_URL}/batch", data=data) as resp:
-            if resp.status != 200:
-                print(f"✗ 上传失败: 状态码: {resp.status}")
-                return []
+    doc_ids = []
+    async with session.post(f"{API_URL}/batch", data=data) as resp:
+        if resp.status != 200:
+            error_text = await resp.text()
+            print(f"✗ 上传失败: 状态码: {resp.status}, 错误信息: {error_text}")
+            return []
 
-            result = await resp.json()
+        results = await resp.json()
+
+        for result in results:
             if not result["success"]:
                 print(f"✗ 上传失败: 错误: {result['error']}")
-                return []
+                continue
 
-            print(f"✓ 上传成功: {len(paths)} 个文件")
-            return [doc["id"] for doc in result["documents"]]
+            print(f"✓ 上传成功: {result['document']['title']}")
+            doc_ids.append(result["document"]["id"])
 
-    except Exception as e:
-        print(f"✗ 上传失败: 错误: {e}")
-        return []
+        print(f"✓ 上传成功: {len(doc_ids)}/{len(paths)} 个文件")
+        return doc_ids
 
 
 async def process_file(
     session: aiohttp.ClientSession, doc_id: int, subject_id: int
 ) -> bool:
     """上传并处理单个文件"""
-    async with session.post(f"{API_URL}/{doc_id}/extract") as resp:
+    async with session.put(f"{API_URL}/{doc_id}/extract") as resp:
         if resp.status != 200:
             print(f"✗ 提取文本失败: {doc_id}")
             return False
 
     # 清洗文本
-    async with session.post(f"{API_URL}/{doc_id}/normalize") as resp:
+    async with session.put(f"{API_URL}/{doc_id}/normalize") as resp:
         if resp.status != 200:
             print(f"✗ 清洗文本失败: {doc_id}")
             return False
