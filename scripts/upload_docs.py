@@ -33,33 +33,38 @@ async def upload_file(
 async def upload_files(
     session: aiohttp.ClientSession, paths: list[Path], subject_id: int
 ) -> list[int]:
-    result_ids = []
-    for path in paths:
-        data = aiohttp.FormData()
-        data.add_field("file", path.read_bytes(), filename=path.name)
-        data.add_field("subject_id", str(subject_id))
+
+    data = aiohttp.FormData()
+    for i, path in enumerate(paths):
         try:
-            # 发送文件上传请求
-            async with session.post(f"{API_URL}/batch", data=data) as resp:
-                if resp.status != 200:
-                    print(f"✗ 上传失败: {path.name}, 状态码: {resp.status}")
-                    result_ids.append(None)
-                    continue
-
-                result = await resp.json()
-                if not result["success"]:
-                    print(f"✗ 上传失败: {path.name}, 错误: {result['error']}")
-                    result_ids.append(None)
-                    continue
-
-                print(f"✓ 上传成功: {path.name}")
-                result_ids.append(result["document"]["id"])
-
+            data.add_field(
+                f"file{i}",
+                path.read_bytes(),
+                filename=path.name,
+            )
         except Exception as e:
-            print(f"✗ 上传失败: {path.name}, 错误: {e}")
-            result_ids.append(None)
+            print(f"✗ 读取文件失败: {path.name}, 错误: {e}")
+            continue
 
-    return result_ids
+    data.add_field("subject_id", str(subject_id))
+
+    try:
+        async with session.post(f"{API_URL}/batch", data=data) as resp:
+            if resp.status != 200:
+                print(f"✗ 上传失败: 状态码: {resp.status}")
+                return []
+
+            result = await resp.json()
+            if not result["success"]:
+                print(f"✗ 上传失败: 错误: {result['error']}")
+                return []
+
+            print(f"✓ 上传成功: {len(paths)} 个文件")
+            return [doc["id"] for doc in result["documents"]]
+
+    except Exception as e:
+        print(f"✗ 上传失败: 错误: {e}")
+        return []
 
 
 async def process_file(
