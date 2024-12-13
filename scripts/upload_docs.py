@@ -63,10 +63,15 @@ async def upload_files(
 
 
 async def process_file(
-    session: aiohttp.ClientSession, doc_id: int, subject_id: int
+    session: aiohttp.ClientSession,
+    doc_id: int,
+    num_workers: int = 32,
+    force_ocr: bool = False,
 ) -> bool:
     """上传并处理单个文件"""
-    async with session.put(f"{API_URL}/{doc_id}/extract") as resp:
+    # 提取文本
+    extract_config = {"num_workers": num_workers, "force_ocr": force_ocr}
+    async with session.put(f"{API_URL}/{doc_id}/extract", json=extract_config) as resp:
         if resp.status != 200:
             print(f"✗ 提取文本失败: {doc_id}")
             return False
@@ -84,6 +89,11 @@ async def main():
     parser = argparse.ArgumentParser(description="上传并处理文档")
     parser.add_argument("path", help="文件或文件夹路径")
     parser.add_argument("--subject", type=int, required=True, help="学科ID")
+    parser.add_argument(
+        "--num-workers", type=int, default=32, help="处理文档的工作进程数"
+    )
+    parser.add_argument("--force-ocr", action="store_true", help="强制使用OCR处理")
+
     args = parser.parse_args()
 
     path = Path(args.path)
@@ -91,7 +101,8 @@ async def main():
         print(f"路径不存在: {path}")
         return
 
-    async with aiohttp.ClientSession() as session:
+    timeout = aiohttp.ClientTimeout(total=0)  # 禁用超时
+    async with aiohttp.ClientSession(timeout=timeout) as session:
         print("开始上传文档...")
         if path.is_file():
             if path.suffix.lower() in SUPPORTED_TYPES:
@@ -108,7 +119,12 @@ async def main():
 
         print(f"上传成功: {len(doc_ids)} 个文件")
 
-        tasks = [process_file(session, doc_id, args.subject) for doc_id in doc_ids]
+        tasks = [
+            process_file(
+                session, doc_id, num_workers=args.num_workers, force_ocr=args.force_ocr
+            )
+            for doc_id in doc_ids
+        ]
 
         results = await asyncio.gather(*tasks)
 

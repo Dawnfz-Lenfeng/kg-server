@@ -2,6 +2,7 @@ import asyncio
 import uuid
 from pathlib import Path
 from typing import cast
+from urllib.parse import unquote
 
 from fastapi import Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +27,7 @@ async def get_doc(
     if not file.filename:
         raise HTTPException(status_code=400, detail="File name is required")
 
+    file.filename = unquote(file.filename)  # 处理文件名中的特殊字符
     suffix = Path(file.filename).suffix[1:]
     return DocCreate(
         title=title or Path(file.filename).stem,
@@ -68,8 +70,7 @@ async def _save_uploaded_file(file: UploadFile):
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
     content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
+    file_path.write_bytes(content)
 
     return file_path.stem
 

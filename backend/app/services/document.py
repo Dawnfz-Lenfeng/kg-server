@@ -122,7 +122,7 @@ class DocService:
         if doc.state < state:
             return None
 
-        return doc
+        return await doc.read_text(state)
 
     async def delete_doc(self, doc_id: int) -> bool:
         """删除文档"""
