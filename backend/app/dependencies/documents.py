@@ -1,7 +1,7 @@
 import asyncio
 import uuid
 from pathlib import Path
-from typing import cast
+from urllib.parse import unquote
 
 from fastapi import Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,10 +26,12 @@ async def get_doc(
     if not file.filename:
         raise HTTPException(status_code=400, detail="File name is required")
 
-    suffix = Path(file.filename).suffix[1:]
+    # 解码文件名
+    decoded_filename = unquote(file.filename)
+    suffix = Path(decoded_filename).suffix[1:]
     return DocCreate(
-        title=title or Path(file.filename).stem,
-        file_name=await _save_uploaded_file(file),
+        title=title or Path(decoded_filename).stem,
+        file_name=await _save_uploaded_file(file, decoded_filename),
         file_type=file_type or FileType(suffix),
         subject_id=subject_id,
     )
@@ -61,15 +63,14 @@ async def get_docs(
     return await asyncio.gather(*tasks)
 
 
-async def _save_uploaded_file(file: UploadFile):
+async def _save_uploaded_file(file: UploadFile, decoded_filename: str):
     """保存上传的文件到指定目录"""
-    file_name = _get_unique_filename(cast(str, file.filename))
+    file_name = _get_unique_filename(decoded_filename)
     file_path = settings.UPLOAD_DIR / file_name
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
     content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
+    file_path.write_bytes(content)
 
     return file_path.stem
 
