@@ -45,7 +45,7 @@ paddleocr = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["backend"] 
+packages = ["app"] 
 
 [tool.black]
 line-length = 88
