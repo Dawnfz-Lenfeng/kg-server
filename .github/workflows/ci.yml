@@ -21,8 +21,8 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
         cache-dependency-path: |
-          backend/pyproject.toml
-          backend/setup.cfg
+          pyproject.toml
+
 
     - name: Install lint tools
       run: |
@@ -75,11 +75,10 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        cd backend
         pip install pytest pytest-asyncio pytest-cov httpx
         pip install -e .
 
     - name: Run tests
       run: |
-        cd backend/tests/${{ matrix.test-suite }}
+        cd tests/${{ matrix.test-suite }}
         pytest . --cov=app -v

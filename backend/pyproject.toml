@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ckgcus-backend"
+name = "kg-server"
 version = "0.1.0"
 description = "Knowledge Graph Construction System Backend"
 authors = [
