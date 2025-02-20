@@ -1,0 +1,3 @@
+[submodule "kgtools"]
+	path = kgtools
+	url = https://github.com/Dawnfz-lenfeng/kgtools.git
