@@ -20,9 +20,6 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
-        cache-dependency-path: |
-          pyproject.toml
-          kgtools/pyproject.toml
 
     - name: Install lint tools
       run: |
@@ -50,12 +47,10 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10"]
-        test-suite: ["preprocessing", "services", "api"]
+        test-suite: ["services", "api"]
 
     steps:
     - uses: actions/checkout@v3
-      with:
-        submodules: 'recursive'
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
@@ -64,7 +59,6 @@ jobs:
         cache: 'pip'
         cache-dependency-path: |
           pyproject.toml
-          kgtools/pyproject.toml
 
     - name: Install OCR dependencies
       if: matrix.test-suite != 'preprocessing'
@@ -76,9 +70,6 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pytest pytest-asyncio pytest-cov httpx
-        cd kgtools
-        pip install -e .
-        cd ..
         pip install -e .
 
     - name: Run tests
