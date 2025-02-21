@@ -40,10 +40,6 @@ dev = [
     "mypy",
     "black",
 ]
-paddleocr = [
-    "paddlepaddle",
-    "paddleocr",
-]
 
 [tool.setuptools]
 packages = ["app"]
