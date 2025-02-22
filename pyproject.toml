@@ -21,12 +21,7 @@ dependencies = [
     "pydantic",
     "pydantic-settings",
     "python-dotenv",
-    "tqdm",
     "aiofiles",
-    "pdf2image",
-    "pdfplumber",
-    "cnocr[ort-cpu]",
-    "pytesseract",
     "kgtools @ git+https://github.com/Dawnfz-lenfeng/kgtools.git",
 ]
 
