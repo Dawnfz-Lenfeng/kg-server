@@ -24,7 +24,6 @@ docker-compose up -d db
 
 3. 安装和运行后端
 ```bash
-cd backend
 cp .env.example .env
 pip install -e .
 uvicorn app.main:app --reload
