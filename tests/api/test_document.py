@@ -1,9 +1,9 @@
 import pytest
 from fastapi import UploadFile
 from httpx import AsyncClient
+from kgtools.schemas.preprocessing import ExtractConfig, NormalizeConfig, OCREngine
 
 from app.schemas.document import DocState
-from app.schemas.preprocessing import ExtractConfig, NormalizeConfig, OCREngine
 
 
 @pytest.mark.asyncio

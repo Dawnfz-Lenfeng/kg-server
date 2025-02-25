@@ -1,7 +1,7 @@
 import pytest
+from kgtools.schemas.preprocessing import ExtractConfig, NormalizeConfig, OCREngine
 
 from app.schemas.document import DocCreate, DocState, DocUpdate
-from app.schemas.preprocessing import ExtractConfig, NormalizeConfig, OCREngine
 from app.services import DocService
 
 

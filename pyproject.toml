@@ -22,7 +22,7 @@ dependencies = [
     "pydantic-settings",
     "python-dotenv",
     "aiofiles",
-    "kgtools @ git+https://github.com/Dawnfz-lenfeng/kgtools.git",
+    "kgtools[schema] @ git+https://github.com/Dawnfz-lenfeng/kgtools.git",
 ]
 
 [project.optional-dependencies]

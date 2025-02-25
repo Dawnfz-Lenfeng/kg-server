@@ -2,6 +2,7 @@ from typing import Sequence
 
 import aiofiles
 from kgtools.preprocessing import extract_text, normalize_text
+from kgtools.schemas.preprocessing import ExtractConfig, NormalizeConfig
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -9,7 +10,6 @@ from sqlalchemy.orm import selectinload
 from ..database import transaction
 from ..models import Document
 from ..schemas.document import DocCreate, DocState, DocUpdate
-from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
 
 
 class DocService:

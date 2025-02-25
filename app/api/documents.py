@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from kgtools.schemas.preprocessing import ExtractConfig, NormalizeConfig
 
 from ..dependencies.documents import get_doc, get_doc_svc, get_docs
 from ..schemas.document import (
@@ -8,7 +9,6 @@ from ..schemas.document import (
     DocUpdate,
     DocUploadResult,
 )
-from ..schemas.preprocessing import ExtractConfig, NormalizeConfig
 from ..services import DocService
 
 router = APIRouter(prefix="/documents", tags=["documents"])
