@@ -36,9 +36,16 @@ class ExtractConfig(BaseModel):
 
 
 class NormalizeConfig(BaseModel):
+    min_paragraph_length: int = Field(
+        default=15, description="Minimum length for a paragraph to be kept"
+    )
+    min_sentence_length: int = Field(
+        default=5, description="Minimum length for a sentence to be kept"
+    )
     char_threshold: int = Field(
-        default=2, description="Minimum length of characters to keep"
+        default=2,
+        description="Maximum number of consecutive repeated characters to keep",
     )
     sentence_threshold: float = Field(
-        default=0.9, description="Similarity threshold for merging similar sentences"
+        default=0.95, description="Similarity threshold for sentence deduplication"
     )
