@@ -54,9 +54,9 @@ async def get_perm_code(
     return auth_svc.get_perm_codes(current_user.role_value)
 
 
-@router.get("/logout")
+@router.get("/logout", response_model=Result)
 async def logout():
-    return {"message": "Token has been destroyed"}
+    return Result(message="退出登录成功")
 
 
 @router.post("/register", response_model=RegisterResult)
