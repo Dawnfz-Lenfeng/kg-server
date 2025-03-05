@@ -28,9 +28,9 @@ async def init_db():
             # 创建测试用户
             test_users = [
                 {
-                    "username": "vben",
+                    "username": "admin",
                     "password": "123456",
-                    "real_name": "Vben Admin",
+                    "real_name": "Admin",
                     "avatar": "https://q1.qlogo.cn/g?b=qq&nk=190848757&s=640",
                     "desc": "manager",
                     "role_name": "Super Admin",
