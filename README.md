@@ -29,13 +29,6 @@ pip install -e .
 uvicorn app.main:app --reload
 ```
 
-<!-- 4. 安装和运行前端
-```bash
-cd frontend
-npm install
-npm run dev
-``` -->
-
 ## 详细文档
 - [安装指南](docs/installation.md)
 - [开发指南](docs/development.md)

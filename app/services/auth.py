@@ -12,36 +12,64 @@ from ..models.user import User
 from ..schemas.user import LoginParams, LoginResult, RegisterParams, RoleInfo
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+PERM_CODES = {
+    "super": ["1000", "3000", "5000"],
+    "test": ["2000", "4000", "6000"],
+}
 
 
 class AuthService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    def _verify_password(self, plain_password: str, hashed_password: str) -> bool:
-        """验证密码"""
-        return pwd_context.verify(plain_password, hashed_password)
-
-    def _get_password_hash(self, password: str) -> str:
-        """获取密码哈希"""
-        return pwd_context.hash(password)
-
-    def _create_access_token(
-        self, data: dict, expires_delta: timedelta | None = None
-    ) -> str:
-        """创建访问令牌"""
-        to_encode = data.copy()
-        if expires_delta:
-            expire = datetime.now() + expires_delta
-        else:
-            expire = datetime.now() + timedelta(
-                minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
-            )
-        to_encode.update({"exp": expire})
-        encoded_jwt = jwt.encode(
-            to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+    async def login(self, params: LoginParams) -> LoginResult | None:
+        """用户登录"""
+        result = await self.db.execute(
+            select(User).where(User.username == params.username)
         )
-        return encoded_jwt
+        user = result.scalar_one_or_none()
+        if not user or not self.verify_password(params.password, user.password):
+            return None
+
+        access_token_expires = timedelta(
+            minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+        )
+        access_token = self.create_access_token(
+            data={"sub": user.username}, expires_delta=access_token_expires
+        )
+
+        return LoginResult(
+            userId=str(user.id),
+            token=access_token,
+            role=RoleInfo(roleName=user.role_name, value=user.role_value),
+        )
+
+    async def register(self, params: RegisterParams) -> User:
+        """用户注册"""
+        result = await self.db.execute(
+            select(User).where(User.username == params.username)
+        )
+        if result.first():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already registered",
+            )
+
+        user = User(
+            username=params.username,
+            password=self.get_password_hash(params.password),
+            real_name=params.real_name,
+            avatar="https://q1.qlogo.cn/g?b=qq&nk=339449197&s=640",
+            desc="New User",
+            role_name="Tester",
+            role_value="test",
+        )
+
+        async with transaction(self.db):
+            self.db.add(user)
+
+        await self.db.refresh(user)
+        return user
 
     async def get_current_user(self, token: str) -> User:
         """获取当前用户"""
@@ -66,59 +94,33 @@ class AuthService:
             raise credentials_exception
         return user
 
-    async def login(self, params: LoginParams) -> LoginResult | None:
-        """用户登录"""
-        result = await self.db.execute(
-            select(User).where(User.username == params.username)
-        )
-        user = result.scalar_one_or_none()
-        if not user or not self._verify_password(params.password, user.password):
-            return None
-
-        access_token_expires = timedelta(
-            minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
-        )
-        access_token = self._create_access_token(
-            data={"sub": user.username}, expires_delta=access_token_expires
-        )
-
-        return LoginResult(
-            userId=str(user.id),
-            token=access_token,
-            role=RoleInfo(roleName=user.role_name, value=user.role_value),
-        )
-
-    async def register(self, params: RegisterParams) -> User:
-        """用户注册"""
-        result = await self.db.execute(
-            select(User).where(User.username == params.username)
-        )
-        if result.first():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username already registered",
-            )
-
-        user = User(
-            username=params.username,
-            password=self._get_password_hash(params.password),
-            real_name=params.real_name,
-            avatar="https://q1.qlogo.cn/g?b=qq&nk=339449197&s=640",
-            desc="New User",
-            role_name="Tester",
-            role_value="test",
-        )
-
-        async with transaction(self.db):
-            self.db.add(user)
-
-        await self.db.refresh(user)
-        return user
-
-    def get_perm_codes(self, role_value: str) -> list[str]:
+    @staticmethod
+    def get_perm_codes(role_value: str) -> list[str]:
         """获取权限码"""
-        perm_codes = {
-            "super": ["1000", "3000", "5000"],
-            "test": ["2000", "4000", "6000"],
-        }
-        return perm_codes.get(role_value, [])
+        return PERM_CODES.get(role_value, [])
+
+    @staticmethod
+    def verify_password(plain_password: str, hashed_password: str) -> bool:
+        """验证密码"""
+        return pwd_context.verify(plain_password, hashed_password)
+
+    @staticmethod
+    def get_password_hash(password: str) -> str:
+        """获取密码哈希"""
+        return pwd_context.hash(password)
+
+    @staticmethod
+    def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
+        """创建访问令牌"""
+        to_encode = data.copy()
+        if expires_delta:
+            expire = datetime.now() + expires_delta
+        else:
+            expire = datetime.now() + timedelta(
+                minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+            )
+        to_encode.update({"exp": expire})
+        encoded_jwt = jwt.encode(
+            to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+        )
+        return encoded_jwt

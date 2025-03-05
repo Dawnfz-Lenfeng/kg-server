@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from app.database import AsyncSessionLocal, Base, engine, transaction
 from app.models.user import User
-from app.utils.auth import get_password_hash
+from app.services.auth import AuthService
 
 
 async def init_db():
@@ -18,6 +18,7 @@ async def init_db():
 
     # 创建会话
     async with AsyncSessionLocal() as db:
+
         async with transaction(db):
             # 检查是否已有用户
             result = await db.execute(select(User))
@@ -50,7 +51,7 @@ async def init_db():
             for user_data in test_users:
                 user = User(
                     username=user_data["username"],
-                    password=get_password_hash(user_data["password"]),
+                    password=AuthService.get_password_hash(user_data["password"]),
                     real_name=user_data["real_name"],
                     avatar=user_data["avatar"],
                     desc=user_data["desc"],
