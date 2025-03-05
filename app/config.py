@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     TESTING: bool = False
 
     # JWT Settings
-    JWT_SECRET_KEY: str
+    JWT_SECRET_KEY: str = "secret"
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
@@ -46,4 +46,4 @@ class Settings(BaseSettings):
     )
 
 
-settings = Settings()  # type: ignore
+settings = Settings()
