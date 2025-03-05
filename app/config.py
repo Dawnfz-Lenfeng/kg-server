@@ -35,10 +35,15 @@ class Settings(BaseSettings):
     DEV_MODE: bool = True
     TESTING: bool = False
 
+    # JWT Settings
+    JWT_SECRET_KEY: str
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
     )
 
 
-settings = Settings()
+settings = Settings()  # type: ignore

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 
-from .base import DocBrief, SetOperation
+from .base import DocBrief
 
 
 class KeywordBase(BaseModel):

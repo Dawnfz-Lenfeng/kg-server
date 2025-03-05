@@ -23,6 +23,8 @@ dependencies = [
     "python-dotenv",
     "aiofiles",
     "kgtools[schema] @ git+https://github.com/Dawnfz-lenfeng/kgtools.git",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
 ]
 
 [project.optional-dependencies]

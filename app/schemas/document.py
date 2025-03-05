@@ -3,7 +3,7 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .base import KeywordBrief, SetOperation
+from .base import KeywordBrief
 
 
 class FileType(str, Enum):
@@ -45,7 +45,6 @@ class DocUpdate(BaseModel):
 
     title: str | None = Field(None, description="文档标题")
     subject_id: int | None = Field(None, description="学科ID")
-    # keywords: SetOperation | None = Field(None, description="关键词更新操作")
 
 
 class DocResponse(DocBase):
