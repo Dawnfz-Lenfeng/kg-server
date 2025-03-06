@@ -74,5 +74,6 @@ jobs:
 
     - name: Run tests
       run: |
+        cp .env.example .env
         cd tests/${{ matrix.test-suite }}
         pytest . --cov=app -v

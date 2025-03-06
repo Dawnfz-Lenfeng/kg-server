@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     DEV_MODE: bool = True
     TESTING: bool = False
 
+    # JWT Settings
+    JWT_SECRET_KEY: str = "secret"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
