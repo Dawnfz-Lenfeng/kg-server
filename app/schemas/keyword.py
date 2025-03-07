@@ -1,12 +1,14 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 from .base import DocBrief
+from .subject import Subject
 
 
 class KeywordBase(BaseModel):
     """关键词基础模型"""
 
     name: str = Field(..., description="关键词名称", examples=["机器学习"])
+    subject: Subject = Field(..., description="所属学科")
 
 
 class KeywordCreate(KeywordBase):

@@ -1,8 +1,6 @@
-import asyncio
 import uuid
 from pathlib import Path
 from typing import cast
-from urllib.parse import unquote
 
 from fastapi import Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,48 +17,34 @@ async def get_doc_svc(db: AsyncSession = Depends(get_db)) -> DocService:
 
 async def get_doc(
     file: UploadFile = File(...),
-    subject_id: int = Form(...),
-    title: str | None = Form(None),
-    file_type: FileType | None = Form(None),
+    title: str = Form(...),
 ) -> DocCreate:
-    """解析文档上传的表单数据"""
+    """解析文档上传的表单数据
+
+    Args:
+        file: 上传的文件
+        title: 文档标题
+    """
     if not file.filename:
         raise HTTPException(status_code=400, detail="File name is required")
 
-    file.filename = unquote(file.filename)  # 处理文件名中的特殊字符
-    suffix = Path(file.filename).suffix[1:]
-    return DocCreate(
-        title=title or Path(file.filename).stem,
-        file_name=await _save_uploaded_file(file),
-        file_type=file_type or FileType(suffix),
-        subject_id=subject_id,
-    )
+    file_type = file.filename.split(".")[-1]
 
-
-async def get_docs(
-    files: list[UploadFile] = File(...),
-    subject_id: int = Form(...),
-    titles: list[str] | None = Form(None),
-    file_types: list[FileType] | None = Form(None),
-) -> list[DocCreate]:
-    """批量处理文档上传"""
-    if titles is not None and len(files) != len(titles):
-        raise HTTPException(status_code=400, detail="File and title count mismatch")
-
-    if file_types is not None and len(files) != len(file_types):
-        raise HTTPException(status_code=400, detail="File and file type count mismatch")
-
-    tasks = [
-        get_doc(
-            file=file,
-            subject_id=subject_id,
-            title=titles[i] if titles is not None else None,
-            file_type=file_types[i] if file_types is not None else None,
+    try:
+        file_type = FileType(file_type)
+    except ValueError:
+        raise HTTPException(
+            status_code=400, detail=f"Unsupported file type: {file_type}"
         )
-        for i, file in enumerate(files)
-    ]
 
-    return await asyncio.gather(*tasks)
+    # 保存文件并创建文档
+    saved_filename = await _save_uploaded_file(file)
+
+    return DocCreate(
+        title=title,
+        file_name=saved_filename,
+        file_type=file_type,
+    )
 
 
 async def _save_uploaded_file(file: UploadFile):
@@ -75,8 +59,7 @@ async def _save_uploaded_file(file: UploadFile):
     return file_path.stem
 
 
-def _get_unique_filename(original_name: str) -> Path:
+def _get_unique_filename(original_name: str):
     """生成唯一文件名 - 私有辅助方法"""
-    stem = Path(original_name).stem
-    suffix = Path(original_name).suffix
-    return Path(f"{stem}_{uuid.uuid4().hex[:8]}{suffix}")
+    path = Path(original_name)
+    return Path(f"{path.stem}_{uuid.uuid4().hex[:8]}{path.suffix}")

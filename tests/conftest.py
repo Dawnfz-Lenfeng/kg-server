@@ -110,7 +110,6 @@ async def sample_doc(
         title="测试文档",
         file_name=uploaded_file_name,
         file_type="pdf",
-        subject_id=1,
     )
     document = await doc_svc.create_doc(doc)
     assert document is not None

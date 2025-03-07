@@ -9,6 +9,7 @@ from ..schemas.keyword import (
     KeywordResponse,
     KeywordUpdate,
 )
+from ..schemas.subject import Subject
 from ..services import DocKeywordService, KeywordService
 
 router = APIRouter(prefix="/keywords", tags=["keywords"])
@@ -31,12 +32,13 @@ async def create_keyword(
 @router.post("/{doc_id}", response_model=DocResponse)
 async def create_keywords_for_doc(
     doc_id: int,
+    subject: Subject,
     keywords: list[str] = Depends(get_keywords),
     doc_kw_svc: DocKeywordService = Depends(get_doc_kw_svc),
 ):
     """创建关键词并关联到文档"""
     try:
-        doc = await doc_kw_svc.create_keywards_for_doc(doc_id, keywords)
+        doc = await doc_kw_svc.create_keywards_for_doc(doc_id, keywords, subject)
         if doc is None:
             raise HTTPException(status_code=404, detail="Document not found")
 

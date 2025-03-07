@@ -73,7 +73,6 @@ class Document(Base):
     state: Mapped[DocState]
     word_count: Mapped[int | None]
     
-    subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"))
     keywords: Mapped[set[Keyword]] = relationship(secondary=document_keywords)
 ```
 

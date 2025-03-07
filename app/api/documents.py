@@ -1,56 +1,37 @@
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from kgtools.schemas.preprocessing import ExtractConfig, NormalizeConfig
 
-from ..dependencies.documents import get_doc, get_doc_svc, get_docs
+from ..dependencies.documents import get_doc, get_doc_svc
+from ..schemas.base import Result, ResultEnum
 from ..schemas.document import (
     DocCreate,
     DocResponse,
     DocState,
     DocUpdate,
-    DocUploadResult,
+    FileUploadResult,
 )
 from ..services import DocService
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-@router.post("", response_model=DocUploadResult)
+@router.post("")
 async def create_doc(
     doc: DocCreate = Depends(get_doc),
     doc_svc: DocService = Depends(get_doc_svc),
-) -> DocUploadResult:
+):
     """上传文档"""
     try:
         document = await doc_svc.create_doc(doc)
-        return DocUploadResult(
-            success=True,
-            document=DocResponse.model_validate(document),
-            error=None,
+        return FileUploadResult(
+            code=200,
+            message="上传成功",
+            url=f"/api/v1/documents/{document.id}/file",
+            fileName=f"{document.title}.{document.file_type}",
         )
     except Exception as e:
-        return DocUploadResult(success=False, document=None, error=str(e))
-
-
-@router.post("/batch", response_model=list[DocUploadResult])
-async def create_docs(
-    docs: list[DocCreate] = Depends(get_docs),
-    doc_svc: DocService = Depends(get_doc_svc),
-) -> list[DocUploadResult]:
-    """批量上传文档"""
-    results = []
-    for doc in docs:
-        try:
-            document = await doc_svc.create_doc(doc)
-            results.append(
-                DocUploadResult(
-                    success=True,
-                    document=DocResponse.model_validate(document),
-                    error=None,
-                )
-            )
-        except Exception as e:
-            results.append(DocUploadResult(success=False, document=None, error=str(e)))
-    return results
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.put("/{doc_id}/extract", response_model=DocResponse)
@@ -118,23 +99,40 @@ async def read_doc_text(
     return text
 
 
+@router.get("/{doc_id}/file")
+async def download_doc_file(
+    doc_id: int,
+    doc_svc: DocService = Depends(get_doc_svc),
+):
+    """下载文档文件"""
+    doc = await doc_svc.read_doc(doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    return FileResponse(
+        doc.upload_path,
+        filename=f"{doc.title}.{doc.file_type}",
+        media_type="application/octet-stream",
+    )
+
+
 @router.get("", response_model=list[DocResponse])
 async def read_docs(
     skip: int = 0,
     limit: int = 10,
-    subject_id: int | None = None,
     doc_svc: DocService = Depends(get_doc_svc),
 ):
     """获取文档列表"""
-    return await doc_svc.read_docs(skip, limit, subject_id)
+    return await doc_svc.read_docs(skip, limit)
 
 
-@router.delete("/{doc_id}")
+@router.delete("/{doc_id}", response_model=Result)
 async def delete_doc(
     doc_id: int,
     doc_svc: DocService = Depends(get_doc_svc),
 ):
     """删除文档"""
     if not await doc_svc.delete_doc(doc_id):
-        raise HTTPException(status_code=404, detail="Document not found")
-    return {"message": "Document deleted"}
+        return Result(code=ResultEnum.ERROR, message="Document not found")
+
+    return Result(message="Document deleted")

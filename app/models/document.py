@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 import aiofiles
-from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..config import settings
@@ -14,7 +13,6 @@ from .keyword import document_keywords
 
 if TYPE_CHECKING:
     from .keyword import Keyword
-    from .subject import Subject
 
 
 class Document(Base):
@@ -24,7 +22,6 @@ class Document(Base):
     title: Mapped[str] = mapped_column(nullable=False)
     file_name: Mapped[str] = mapped_column(nullable=False)
     file_type: Mapped[FileType] = mapped_column(nullable=False)
-    subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"))
     state: Mapped[DocState] = mapped_column(default=DocState.UPLOADED, nullable=False)
     word_count: Mapped[int | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(default=datetime.now, nullable=False)
@@ -32,7 +29,6 @@ class Document(Base):
         default=datetime.now, onupdate=datetime.now, nullable=False
     )
 
-    subject: Mapped[Subject] = relationship(back_populates="documents")
     keywords: Mapped[set[Keyword]] = relationship(
         "Keyword",
         secondary=document_keywords,

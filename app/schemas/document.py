@@ -29,9 +29,6 @@ class DocBase(BaseModel):
 
     title: str = Field(..., description="文档标题")
     file_type: FileType = Field(FileType.PDF, description="文件类型 (pdf, txt)")
-    subject_id: int = Field(
-        ..., description="学科ID (1=金融, 2=经济, 3=统计, 4=数据科学)", ge=1
-    )
 
 
 class DocCreate(DocBase):
@@ -44,7 +41,6 @@ class DocUpdate(BaseModel):
     """更新文档请求模型"""
 
     title: str | None = Field(None, description="文档标题")
-    subject_id: int | None = Field(None, description="学科ID")
 
 
 class DocResponse(DocBase):
@@ -61,11 +57,10 @@ class DocResponse(DocBase):
     model_config = ConfigDict(from_attributes=True, json_encoders={set: list})
 
 
-class DocUploadResult(BaseModel):
-    """文档上传结果"""
+class FileUploadResult(BaseModel):
+    """文件上传结果 - 匹配前端 UploadApiResult"""
 
-    success: bool = Field(..., description="是否上传成功")
-    document: DocResponse | None = Field(None, description="文档详情")
-    error: str | None = Field(None, description="错误信息")
-
-    model_config = ConfigDict(from_attributes=True)
+    code: int = Field(200, description="响应码")
+    message: str = Field("上传成功", description="响应信息")
+    url: str = Field(..., description="文件访问路径")
+    fileName: str = Field(..., description="文件名")

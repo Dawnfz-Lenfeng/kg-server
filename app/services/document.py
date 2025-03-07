@@ -18,9 +18,7 @@ class DocService:
 
     async def create_doc(self, doc_create: DocCreate) -> Document:
         """创建文档"""
-        db_doc = Document(
-            **doc_create.model_dump(exclude={"keyword_ids"}, exclude_unset=True)
-        )
+        db_doc = Document(**doc_create.model_dump())
         db_doc.create_dirs()
         try:
             async with transaction(self.db):
@@ -30,8 +28,7 @@ class DocService:
             return db_doc
 
         except Exception as e:
-            file_path = db_doc.upload_path
-            file_path.unlink(missing_ok=True)
+            db_doc.delete_dirs()
             raise e
 
     async def extract_doc_text(
@@ -102,13 +99,9 @@ class DocService:
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def read_docs(
-        self, skip: int, limit: int, subject_id: int | None
-    ) -> Sequence[Document]:
+    async def read_docs(self, skip: int, limit: int) -> Sequence[Document]:
         """获取文档列表"""
         stmt = select(Document).options(selectinload(Document.keywords))
-        if subject_id is not None:
-            stmt = stmt.where(Document.subject_id == subject_id)
         stmt = stmt.offset(skip).limit(limit)
         result = await self.db.execute(stmt)
         return result.scalars().all()
