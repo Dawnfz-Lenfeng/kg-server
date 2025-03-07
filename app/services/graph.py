@@ -36,6 +36,4 @@ class GraphService:
 
     async def read_graph(self) -> GraphBase | None:
         """读取知识图谱"""
-        return await self.db.execute(
-            select(GraphBase).options(selectinload(GraphBase.keywords))
-        ).scalar()
+        return await self.db.execute(select(GraphBase)).scalar()
