@@ -74,28 +74,6 @@ class DocService:
             await self.update_doc_state(doc_id, DocState.EXTRACTED)
             raise e
 
-    async def normalize_doc_text(
-        self, doc_id: int, normalize_config: NormalizeConfig
-    ) -> Document | None:
-        """标准化文档文本"""
-        doc = await self.read_doc(doc_id)
-        if doc is None or doc.state < DocState.EXTRACTED:
-            return None
-
-        async with aiofiles.open(doc.extracted_path, "r", encoding="utf-8") as f:
-            raw_text = await f.read()
-
-        normalized_text = normalize_text(
-            raw_text,
-            **normalize_config.model_dump(),
-        )
-
-        async with transaction(self.db):
-            await doc.write_text(normalized_text, DocState.NORMALIZED)
-
-        await self.db.refresh(doc)
-        return doc
-
     async def update_doc(self, doc_id: int, doc_update: DocUpdate) -> Document | None:
         """更新文档信息"""
         doc = await self.read_doc(doc_id)

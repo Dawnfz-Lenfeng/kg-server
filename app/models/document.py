@@ -70,7 +70,9 @@ class Document(Base):
         """根据处理阶段获取对应的文件路径"""
         return {
             DocState.UPLOADED: self.upload_path,
+            DocState.EXTRACTING: self.upload_path,
             DocState.EXTRACTED: self.extracted_path,
+            DocState.NORMALIZING: self.extracted_path,
             DocState.NORMALIZED: self.normalized_path,
         }[state]
 

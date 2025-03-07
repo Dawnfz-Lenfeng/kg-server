@@ -19,7 +19,7 @@ from ..services import DocService
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-@router.post("", response_model=FileUploadResult)
+@router.post("")
 async def create_doc(
     doc: DocCreate = Depends(get_doc),
     doc_svc: DocService = Depends(get_doc_svc),
@@ -49,8 +49,6 @@ async def extract_doc(
 
     await redis.enqueue_job("extract_doc", doc_id, ExtractConfig())
 
-    return {"message": "Document extraction started"}
-
 
 @router.put("/{doc_id}/normalize")
 @response_wrapper
@@ -63,8 +61,6 @@ async def normalize_doc(
     await doc_svc.update_doc_state(doc_id, DocState.NORMALIZING)
 
     await redis.enqueue_job("normalize_doc", doc_id, NormalizeConfig())
-
-    return {"message": "Document normalization started"}
 
 
 @router.put("/{doc_id}", response_model=DocResponse)
@@ -150,4 +146,3 @@ async def delete_doc(
     """删除文档"""
     if not await doc_svc.delete_doc(doc_id):
         raise HTTPException(status_code=404, detail="Document not found")
-    return "Document deleted"

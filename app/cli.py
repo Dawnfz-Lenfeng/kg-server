@@ -7,11 +7,21 @@ import typer
 cli = typer.Typer()
 
 
+def init_database(root_dir: Path):
+    """初始化数据库"""
+    print("Initializing database...")
+    subprocess.run([sys.executable, "scripts/init_db.py"], cwd=root_dir, check=True)
+
+
 @cli.command()
-def dev():
+def dev(init: bool = typer.Option(False, "--init", help="初始化数据库")):
     """启动开发服务器和 worker"""
     # 获取项目根目录
     root_dir = Path(__file__).parent.parent
+
+    # 如果需要初始化数据库
+    if init:
+        init_database(root_dir)
 
     # 启动 FastAPI 服务
     api_process = subprocess.Popen(

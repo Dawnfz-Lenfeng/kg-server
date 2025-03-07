@@ -20,13 +20,14 @@ cd CKG-CUS
 2. 启动数据库
 ```bash
 docker-compose up -d db
+docker run --name redis -p 6379:6379 -d redis
 ```
 
 3. 安装和运行后端
 ```bash
 cp .env.example .env
 pip install -e .
-kg-server app.main:app --reload
+kg dev
 ```
 
 ## 详细文档
