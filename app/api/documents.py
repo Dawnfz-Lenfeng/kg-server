@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from arq import ArqRedis
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from kgtools.schemas.preprocessing import ExtractConfig, NormalizeConfig
 
 from ..core.response import response_wrapper
 from ..dependencies.documents import get_doc, get_doc_svc
+from ..dependencies.redis import get_redis
 from ..schemas.document import (
     DocCreate,
     DocList,
@@ -35,30 +37,34 @@ async def create_doc(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.put("/{doc_id}/extract", response_model=DocResponse)
-async def extract_doc_text(
+@router.put("/{doc_id}/extract")
+@response_wrapper
+async def extract_doc(
     doc_id: int,
-    extract_config: ExtractConfig = Body(default=ExtractConfig()),
+    redis: ArqRedis = Depends(get_redis),
     doc_svc: DocService = Depends(get_doc_svc),
 ):
-    """提取文档文本"""
-    doc = await doc_svc.extract_doc_text(doc_id, extract_config)
-    if doc is None:
-        raise HTTPException(status_code=404, detail="Document not found")
-    return doc
+    """提取文档 - 异步处理"""
+    await doc_svc.update_doc_state(doc_id, DocState.EXTRACTING)
+
+    await redis.enqueue_job("extract_doc", doc_id, ExtractConfig())
+
+    return {"message": "Document extraction started"}
 
 
-@router.put("/{doc_id}/normalize", response_model=DocResponse)
-async def normalize_doc_text(
+@router.put("/{doc_id}/normalize")
+@response_wrapper
+async def normalize_doc(
     doc_id: int,
-    normalize_config: NormalizeConfig = Body(default=NormalizeConfig()),
+    redis: ArqRedis = Depends(get_redis),
     doc_svc: DocService = Depends(get_doc_svc),
 ):
-    """清洗文档文本"""
-    doc = await doc_svc.normalize_doc_text(doc_id, normalize_config)
-    if doc is None:
-        raise HTTPException(status_code=404, detail="Document not found")
-    return doc
+    """标准化文档 - 异步处理"""
+    await doc_svc.update_doc_state(doc_id, DocState.NORMALIZING)
+
+    await redis.enqueue_job("normalize_doc", doc_id, NormalizeConfig())
+
+    return {"message": "Document normalization started"}
 
 
 @router.put("/{doc_id}", response_model=DocResponse)
@@ -118,7 +124,7 @@ async def get_doc_file(
 
 
 @router.get("")
-@response_wrapper()
+@response_wrapper
 async def get_doc_list(
     page: int = Query(1, ge=1, description="页码"),
     pageSize: int = Query(10, ge=1, le=100, description="每页数量"),
@@ -136,7 +142,7 @@ async def get_doc_list(
 
 
 @router.delete("/{doc_id}")
-@response_wrapper()
+@response_wrapper
 async def delete_doc(
     doc_id: int,
     doc_svc: DocService = Depends(get_doc_svc),

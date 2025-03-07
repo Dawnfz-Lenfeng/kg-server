@@ -9,21 +9,24 @@ description = "Knowledge Graph Construction System Backend"
 authors = [{ name = "Dawnfz-Lenfeng", email = "2912706234@qq.com" }]
 requires-python = ">=3.10"
 dependencies = [
-    "fastapi",
-    "uvicorn",
-    "sqlalchemy[asyncio]",
+    "fastapi>=0.109.0",
+    "uvicorn>=0.27.0",
+    "sqlalchemy>=2.0.25",
     "asyncpg",
-    "aiosqlite",
+    "aiosqlite>=0.19.0",
     "alembic",
-    "python-multipart",
-    "pydantic",
-    "pydantic-settings",
+    "python-multipart>=0.0.6",
+    "pydantic>=2.5.3",
+    "pydantic-settings>=2.1.0",
     "python-dotenv",
     "aiofiles",
     "kgtools[schema] @ git+https://github.com/Dawnfz-lenfeng/kgtools.git",
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
     "bcrypt==3.2.0",
+    "arq>=0.25.0",
+    "redis>=5.0.1",
+    "typer>=0.9.0",
 ]
 
 [project.optional-dependencies]
@@ -38,7 +41,7 @@ dev = [
 ]
 
 [project.scripts]
-kg-server = "uvicorn.main:main"
+kg = "app.cli:main"
 
 [tool.setuptools]
 packages = ["app"]

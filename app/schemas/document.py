@@ -20,13 +20,21 @@ class FileType(str, Enum):
 class DocState(str, Enum):
     """文档处理状态"""
 
-    UPLOADED = "待处理"
-    EXTRACTED = "已提取"
-    NORMALIZED = "已标准化"
+    UPLOADED = "UPLOADED"  # 已上传
+    EXTRACTING = "EXTRACTING"  # 提取中
+    EXTRACTED = "EXTRACTED"  # 已提取
+    NORMALIZING = "NORMALIZING"  # 标准化中
+    NORMALIZED = "NORMALIZED"  # 已标准化
 
     def __lt__(self, other: str) -> bool:
         """状态比较：用于判断处理进度"""
-        order = [self.UPLOADED, self.EXTRACTED, self.NORMALIZED]
+        order = [
+            self.UPLOADED,
+            self.EXTRACTING,
+            self.EXTRACTED,
+            self.NORMALIZING,
+            self.NORMALIZED,
+        ]
         return order.index(self) < order.index(other)
 
 

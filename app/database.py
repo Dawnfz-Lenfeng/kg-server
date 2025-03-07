@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-from .config import settings
+from .settings import settings
 
 if settings.DEV_MODE:
     SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./dev.db"

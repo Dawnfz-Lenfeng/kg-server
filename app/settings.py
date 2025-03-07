@@ -31,6 +31,15 @@ class Settings(BaseSettings):
         """标准化文本目录"""
         return Path(f"{self.STORAGE_DIR}/texts/normalized")
 
+    # Redis 配置
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+
+    @property
+    def redis_url(self) -> str:
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+
     # 开发模式配置
     DEV_MODE: bool = True
     TESTING: bool = False

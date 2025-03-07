@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Sequence
 
 import aiofiles
@@ -31,25 +32,47 @@ class DocService:
             db_doc.delete_dirs()
             raise e
 
-    async def extract_doc_text(
-        self, doc_id: int, extract_config: ExtractConfig
-    ) -> Document | None:
-        """提取文档文本"""
-        doc = await self.read_doc(doc_id)
-        if doc is None:
-            return None
+    async def extract_doc(self, doc_id: int, config: ExtractConfig):
+        """提取文档内容"""
+        try:
+            doc = await self.read_doc(doc_id)
+            if not doc:
+                raise ValueError(f"Document {doc_id} not found")
 
-        text = extract_text(
-            doc.upload_path,
-            file_type=doc.file_type,
-            **extract_config.model_dump(),
-        )
+            text = extract_text(
+                doc.upload_path,
+                file_type=doc.file_type,
+                **config.model_dump(),
+            )
 
-        async with transaction(self.db):
-            await doc.write_text(text, DocState.EXTRACTED)
+            async with transaction(self.db):
+                await doc.write_text(text, DocState.EXTRACTED)
 
-        await self.db.refresh(doc)
-        return doc
+        except Exception as e:
+            await self.update_doc_state(doc_id, DocState.UPLOADED)
+            raise e
+
+    async def normalize_doc(self, doc_id: int, config: NormalizeConfig) -> None:
+        """标准化文档内容"""
+        try:
+            doc = await self.read_doc(doc_id)
+            if not doc:
+                raise ValueError(f"Document {doc_id} not found")
+
+            async with aiofiles.open(doc.extracted_path, "r", encoding="utf-8") as f:
+                raw_text = await f.read()
+
+            normalized_text = normalize_text(
+                raw_text,
+                **config.model_dump(),
+            )
+
+            async with transaction(self.db):
+                await doc.write_text(normalized_text, DocState.NORMALIZED)
+
+        except Exception as e:
+            await self.update_doc_state(doc_id, DocState.EXTRACTED)
+            raise e
 
     async def normalize_doc_text(
         self, doc_id: int, normalize_config: NormalizeConfig
@@ -89,14 +112,23 @@ class DocService:
         await self.db.refresh(doc)
         return doc
 
+    async def update_doc_state(self, doc_id: int, state: DocState):
+        """更新文档状态"""
+        doc = await self.read_doc(doc_id)
+        if doc is None:
+            raise ValueError(f"Document {doc_id} not found")
+
+        async with transaction(self.db):
+            doc.state = state
+            doc.updated_at = datetime.now()
+
     async def read_doc(self, doc_id: int) -> Document | None:
-        """获取单个文档"""
-        stmt = (
+        """读取文档"""
+        result = await self.db.execute(
             select(Document)
             .where(Document.id == doc_id)
             .options(selectinload(Document.keywords))
         )
-        result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
     async def read_docs(self, skip: int, limit: int) -> Sequence[Document]:
@@ -129,17 +161,27 @@ class DocService:
             await self.db.delete(doc)
         return True
 
-    async def get_doc_list(
-        self, skip: int = 0, limit: int = 10
-    ) -> tuple[list[dict], int]:
-        """获取文档列表，返回 (items, total)"""
-        total = await self.count_docs()
-        docs = await self.read_docs(skip, limit)
+    async def get_doc_list(self, skip: int = 0, limit: int = 10):
+        """获取文档列表"""
+        # 获取总数
+        result = await self.db.execute(select(func.count(Document.id)))
+        total = result.scalar_one()
+
+        # 获取分页数据
+        result = await self.db.execute(
+            select(Document)
+            .offset(skip)
+            .limit(limit)
+            .order_by(Document.created_at.desc())
+        )
+        docs = result.scalars().all()
+
+        # 转换为列表项
         items = [DocItem.from_doc(doc) for doc in docs]
 
         return items, total
 
-    async def count_docs(self) -> int:
+    async def count_docs(self):
         """获取文档总数"""
         result = await self.db.execute(select(func.count(Document.id)))
         return result.scalar_one()

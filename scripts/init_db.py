@@ -7,10 +7,10 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 from sqlalchemy import select
 
-from app.config import settings
 from app.database import AsyncSessionLocal, Base, engine, transaction
 from app.models.user import User
 from app.services.auth import AuthService
+from app.settings import settings
 
 
 async def init_db():

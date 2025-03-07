@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING
 import aiofiles
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ..config import settings
 from ..database import Base
 from ..schemas.document import DocState, FileType
+from ..settings import settings
 from .keyword import document_keywords
 
 if TYPE_CHECKING:

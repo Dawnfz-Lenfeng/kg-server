@@ -70,7 +70,7 @@ async def test_extract_doc_text(
 ):
     """测试提取文档文本"""
     config = ExtractConfig(ocr_engine=ocr_engine, force_ocr=True, last_page=1)
-    doc = await doc_svc.extract_doc_text(
+    doc = await doc_svc.extract_doc(
         doc_id=sample_doc,
         extract_config=config,
     )
@@ -82,11 +82,11 @@ async def test_extract_doc_text(
 @pytest.mark.asyncio
 async def test_normalize_doc_text(sample_doc: int, doc_svc: DocService):
     """测试清洗文档文本"""
-    await doc_svc.extract_doc_text(
+    await doc_svc.extract_doc(
         doc_id=sample_doc, extract_config=ExtractConfig(last_page=1)
     )
 
-    doc = await doc_svc.normalize_doc_text(
+    doc = await doc_svc.normalize_doc(
         doc_id=sample_doc, normalize_config=NormalizeConfig()
     )
 
