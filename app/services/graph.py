@@ -1,6 +1,8 @@
 from kgtools.kgtools.graph.build_graph import build_graph
-from ..schemas.graph import GraphBase
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from ..models.graph import Graph
+from ..schemas.graph import EdgeBase
 from ..database import transaction
 
 
@@ -8,32 +10,29 @@ class GraphService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def build_graph(self) -> GraphBase | None:
-        """构建知识图谱"""
-        db_graph = await build_graph(self.db)
-        try:
-            async with transaction(self.db):
-                self.db.add(db_graph)
-
-            await self.db.refresh(db_graph)
-            return db_graph
-
-        except Exception as e:
-            file_path = db_graph.upload_path
-            file_path.unlink(missing_ok=True)
-            raise e
-
-    async def extract_graph(self) -> GraphBase | None:
-        """提取知识图谱"""
-        graph = await self.read_graph()
-        text = extract_text()
+    async def build_graph(self) -> list[EdgeBase]:
+        """构建知识图谱并存入数据库"""
+        graph_data = await build_graph()
+        edges = graph_data.get("edges", [])
 
         async with transaction(self.db):
-            await graph.write_text(text)
+            for edge in edges:
+                new_edge = Graph(
+                    source=edge["source"],
+                    target=edge["target"],
+                    weight=edge.get("weight"),
+                )
+                self.db.add(new_edge)
+            await self.db.commit()
 
-        await self.db.refresh(graph)
-        return graph
+        return await self.extract_graph()
 
-    async def read_graph(self) -> GraphBase | None:
-        """读取知识图谱"""
-        return await self.db.execute(select(GraphBase)).scalar()
+    async def extract_graph(self) -> list[EdgeBase]:
+        """从数据库中提取知识图谱"""
+        result = await self.db.execute(select(Graph))
+        edges = result.scalars().all()
+
+        return [
+            EdgeBase(source=edge.source, target=edge.target, weight=edge.weight)
+            for edge in edges
+        ]
