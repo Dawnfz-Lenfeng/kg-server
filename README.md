@@ -26,7 +26,7 @@ docker-compose up -d db
 ```bash
 cp .env.example .env
 pip install -e .
-uvicorn app.main:app --reload
+kg-server app.main:app --reload
 ```
 
 ## 详细文档

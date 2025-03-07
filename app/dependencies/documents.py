@@ -42,7 +42,7 @@ async def get_doc(
 
     return DocCreate(
         title=title,
-        file_name=saved_filename,
+        local_file_name=saved_filename,
         file_type=file_type,
     )
 

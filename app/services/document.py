@@ -3,13 +3,13 @@ from typing import Sequence
 import aiofiles
 from kgtools.preprocessing import extract_text, normalize_text
 from kgtools.schemas.preprocessing import ExtractConfig, NormalizeConfig
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..database import transaction
 from ..models import Document
-from ..schemas.document import DocCreate, DocState, DocUpdate
+from ..schemas.document import DocCreate, DocItem, DocState, DocUpdate
 
 
 class DocService:
@@ -128,3 +128,18 @@ class DocService:
         async with transaction(self.db):
             await self.db.delete(doc)
         return True
+
+    async def get_doc_list(
+        self, skip: int = 0, limit: int = 10
+    ) -> tuple[list[dict], int]:
+        """获取文档列表，返回 (items, total)"""
+        total = await self.count_docs()
+        docs = await self.read_docs(skip, limit)
+        items = [DocItem.from_doc(doc) for doc in docs]
+
+        return items, total
+
+    async def count_docs(self) -> int:
+        """获取文档总数"""
+        result = await self.db.execute(select(func.count(Document.id)))
+        return result.scalar_one()

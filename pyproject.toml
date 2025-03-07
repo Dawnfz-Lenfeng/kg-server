@@ -6,9 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "kg-server"
 version = "0.1.0"
 description = "Knowledge Graph Construction System Backend"
-authors = [
-    {name = "Dawnfz-Lenfeng", email = "2912706234@qq.com"}
-]
+authors = [{ name = "Dawnfz-Lenfeng", email = "2912706234@qq.com" }]
 requires-python = ">=3.10"
 dependencies = [
     "fastapi",
@@ -38,6 +36,9 @@ dev = [
     "mypy",
     "black",
 ]
+
+[project.scripts]
+kg-server = "uvicorn.main:main"
 
 [tool.setuptools]
 packages = ["app"]

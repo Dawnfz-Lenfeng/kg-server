@@ -1,4 +1,5 @@
 import asyncio
+import shutil
 import sys
 from pathlib import Path
 
@@ -6,19 +7,24 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 from sqlalchemy import select
 
+from app.config import settings
 from app.database import AsyncSessionLocal, Base, engine, transaction
 from app.models.user import User
 from app.services.auth import AuthService
 
 
 async def init_db():
+    # 删除上传目录以及里面的文件
+    if Path(settings.STORAGE_DIR).exists():
+        shutil.rmtree(settings.STORAGE_DIR)
+        print("Deleted old storage directory.")
+
     # 创建所有表
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     # 创建会话
     async with AsyncSessionLocal() as db:
-
         async with transaction(db):
             # 检查是否已有用户
             result = await db.execute(select(User))

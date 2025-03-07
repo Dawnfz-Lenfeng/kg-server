@@ -13,7 +13,7 @@ async def test_create_doc(
     """测试创建文档"""
     doc_create = DocCreate(
         title="新建文档",
-        file_name=uploaded_file_name,
+        local_file_name=uploaded_file_name,
         file_type="pdf",
     )
     doc = await doc_svc.create_doc(doc_create)

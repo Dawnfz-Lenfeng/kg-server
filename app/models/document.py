@@ -20,7 +20,7 @@ class Document(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     title: Mapped[str] = mapped_column(nullable=False)
-    file_name: Mapped[str] = mapped_column(nullable=False)
+    local_file_name: Mapped[str] = mapped_column(nullable=False)
     file_type: Mapped[FileType] = mapped_column(nullable=False)
     state: Mapped[DocState] = mapped_column(default=DocState.UPLOADED, nullable=False)
     word_count: Mapped[int | None] = mapped_column(default=None)
@@ -28,7 +28,6 @@ class Document(Base):
     updated_at: Mapped[datetime] = mapped_column(
         default=datetime.now, onupdate=datetime.now, nullable=False
     )
-
     keywords: Mapped[set[Keyword]] = relationship(
         "Keyword",
         secondary=document_keywords,
@@ -38,19 +37,34 @@ class Document(Base):
     )
 
     @property
+    def file_name(self):
+        """获取文件名"""
+        return f"{self.title}.{self.file_type}"
+
+    @property
+    def file_size(self):
+        """获取文件大小"""
+        return self.upload_path.stat().st_size
+
+    @property
     def upload_path(self):
         """获取原始上传文件路径"""
-        return settings.UPLOAD_DIR / f"{self.file_name}.{self.file_type}"
+        return settings.UPLOAD_DIR / f"{self.local_file_name}.{self.file_type}"
 
     @property
     def extracted_path(self):
         """获取提取文本的文件路径"""
-        return settings.RAW_TEXT_DIR / f"{self.file_name}.txt"
+        return settings.RAW_TEXT_DIR / f"{self.local_file_name}.txt"
 
     @property
     def normalized_path(self):
         """获取标准化文本的文件路径"""
-        return settings.NORM_TEXT_DIR / f"{self.file_name}.txt"
+        return settings.NORM_TEXT_DIR / f"{self.local_file_name}.txt"
+
+    @property
+    def url(self):
+        """获取文档的下载URL"""
+        return f"{settings.API_V1_STR}/documents/{self.id}/file"
 
     def get_path(self, state: DocState):
         """根据处理阶段获取对应的文件路径"""

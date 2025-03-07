@@ -2,10 +2,11 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from kgtools.schemas.preprocessing import ExtractConfig, NormalizeConfig
 
+from ..core.response import response_wrapper
 from ..dependencies.documents import get_doc, get_doc_svc
-from ..schemas.base import Result, ResultEnum
 from ..schemas.document import (
     DocCreate,
+    DocList,
     DocResponse,
     DocState,
     DocUpdate,
@@ -16,7 +17,7 @@ from ..services import DocService
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-@router.post("")
+@router.post("", response_model=FileUploadResult)
 async def create_doc(
     doc: DocCreate = Depends(get_doc),
     doc_svc: DocService = Depends(get_doc_svc),
@@ -27,8 +28,8 @@ async def create_doc(
         return FileUploadResult(
             code=200,
             message="上传成功",
-            url=f"/api/v1/documents/{document.id}/file",
-            fileName=f"{document.title}.{document.file_type}",
+            url=document.url,
+            fileName=document.file_name,
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -100,7 +101,7 @@ async def read_doc_text(
 
 
 @router.get("/{doc_id}/file")
-async def download_doc_file(
+async def get_doc_file(
     doc_id: int,
     doc_svc: DocService = Depends(get_doc_svc),
 ):
@@ -116,23 +117,31 @@ async def download_doc_file(
     )
 
 
-@router.get("", response_model=list[DocResponse])
-async def read_docs(
-    skip: int = 0,
-    limit: int = 10,
+@router.get("")
+@response_wrapper()
+async def get_doc_list(
+    page: int = Query(1, ge=1, description="页码"),
+    pageSize: int = Query(10, ge=1, le=100, description="每页数量"),
     doc_svc: DocService = Depends(get_doc_svc),
-):
+) -> DocList:
     """获取文档列表"""
-    return await doc_svc.read_docs(skip, limit)
+    skip = (page - 1) * pageSize
+    items, total = await doc_svc.get_doc_list(skip=skip, limit=pageSize)
+    return DocList(
+        items=items,
+        total=total,
+        page=page,
+        pageSize=pageSize,
+    )
 
 
-@router.delete("/{doc_id}", response_model=Result)
+@router.delete("/{doc_id}")
+@response_wrapper()
 async def delete_doc(
     doc_id: int,
     doc_svc: DocService = Depends(get_doc_svc),
 ):
     """删除文档"""
     if not await doc_svc.delete_doc(doc_id):
-        return Result(code=ResultEnum.ERROR, message="Document not found")
-
-    return Result(message="Document deleted")
+        raise HTTPException(status_code=404, detail="Document not found")
+    return "Document deleted"
