@@ -70,21 +70,23 @@ class Document(Base):
         """根据处理阶段获取对应的文件路径"""
         return {
             DocState.UPLOADED: self.upload_path,
-            DocState.EXTRACTING: self.upload_path,
             DocState.EXTRACTED: self.extracted_path,
-            DocState.NORMALIZING: self.extracted_path,
             DocState.NORMALIZED: self.normalized_path,
         }[state]
 
     def create_dirs(self):
         """创建文档所需的所有目录"""
         for state in DocState:
+            if not state.is_finished:
+                continue
             file_path = self.get_path(state)
             file_path.parent.mkdir(parents=True, exist_ok=True)
 
     def delete_dirs(self):
         """删除文档所需的所有目录"""
         for state in DocState:
+            if not state.is_finished:
+                continue
             file_path = self.get_path(state)
             file_path.unlink(missing_ok=True)
 

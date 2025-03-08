@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Sequence
 
 import aiofiles
 from kgtools.preprocessing import extract_text, normalize_text
@@ -35,7 +34,7 @@ class DocService:
     async def extract_doc(self, doc_id: int, config: ExtractConfig):
         """提取文档内容"""
         try:
-            doc = await self.read_doc(doc_id)
+            doc = await self.get_doc(doc_id)
             if not doc:
                 raise ValueError(f"Document {doc_id} not found")
 
@@ -55,7 +54,7 @@ class DocService:
     async def normalize_doc(self, doc_id: int, config: NormalizeConfig) -> None:
         """标准化文档内容"""
         try:
-            doc = await self.read_doc(doc_id)
+            doc = await self.get_doc(doc_id)
             if not doc:
                 raise ValueError(f"Document {doc_id} not found")
 
@@ -76,7 +75,7 @@ class DocService:
 
     async def update_doc(self, doc_id: int, doc_update: DocUpdate) -> Document | None:
         """更新文档信息"""
-        doc = await self.read_doc(doc_id)
+        doc = await self.get_doc(doc_id)
         if doc is None:
             return None
 
@@ -92,7 +91,7 @@ class DocService:
 
     async def update_doc_state(self, doc_id: int, state: DocState):
         """更新文档状态"""
-        doc = await self.read_doc(doc_id)
+        doc = await self.get_doc(doc_id)
         if doc is None:
             raise ValueError(f"Document {doc_id} not found")
 
@@ -100,7 +99,7 @@ class DocService:
             doc.state = state
             doc.updated_at = datetime.now()
 
-    async def read_doc(self, doc_id: int) -> Document | None:
+    async def get_doc(self, doc_id: int) -> Document | None:
         """读取文档"""
         result = await self.db.execute(
             select(Document)
@@ -108,36 +107,6 @@ class DocService:
             .options(selectinload(Document.keywords))
         )
         return result.scalar_one_or_none()
-
-    async def read_docs(self, skip: int, limit: int) -> Sequence[Document]:
-        """获取文档列表"""
-        stmt = select(Document).options(selectinload(Document.keywords))
-        stmt = stmt.offset(skip).limit(limit)
-        result = await self.db.execute(stmt)
-        return result.scalars().all()
-
-    async def read_doc_text(self, doc_id: int, state: DocState) -> str | None:
-        """获取文档文本内容"""
-        doc = await self.read_doc(doc_id)
-        if doc is None:
-            return None
-
-        if doc.state < state:
-            return None
-
-        return await doc.read_text(state)
-
-    async def delete_doc(self, doc_id: int) -> bool:
-        """删除文档"""
-        doc = await self.read_doc(doc_id)
-        if doc is None:
-            return False
-
-        doc.delete_dirs()
-
-        async with transaction(self.db):
-            await self.db.delete(doc)
-        return True
 
     async def get_doc_list(self, skip: int = 0, limit: int = 10):
         """获取文档列表"""
@@ -153,13 +122,33 @@ class DocService:
             .order_by(Document.created_at.desc())
         )
         docs = result.scalars().all()
-
-        # 转换为列表项
-        items = [DocItem.from_doc(doc) for doc in docs]
+        items = [DocItem.from_doc(doc) for doc in docs]  # type: ignore
 
         return items, total
 
-    async def count_docs(self):
-        """获取文档总数"""
-        result = await self.db.execute(select(func.count(Document.id)))
-        return result.scalar_one()
+    async def download_doc(self, doc_id: int, state: DocState):
+        """下载文档"""
+        doc = await self.get_doc(doc_id)
+        if doc is None:
+            raise ValueError(f"Document {doc_id} not found")
+        if doc.state < state:
+            raise ValueError(f"Document {doc_id} is not in {state} state")
+
+        path = doc.get_path(state)
+        filename = (
+            doc.file_name if state == DocState.UPLOADED else f"{doc.title}.{state}.txt"
+        )
+
+        return path, filename
+
+    async def delete_doc(self, doc_id: int) -> bool:
+        """删除文档"""
+        doc = await self.get_doc(doc_id)
+        if doc is None:
+            return False
+
+        doc.delete_dirs()
+
+        async with transaction(self.db):
+            await self.db.delete(doc)
+        return True

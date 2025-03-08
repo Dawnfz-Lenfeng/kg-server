@@ -30,18 +30,24 @@ def response_wrapper(func: Callable[..., Any]) -> Callable[..., Any]:
 
             # 包装响应
             return JSONResponse(
-                content=Result(code=ResultEnum.SUCCESS, result=response).model_dump()
+                content=Result(
+                    code=ResultEnum.SUCCESS.value,
+                    result=response,
+                ).model_dump()
             )
 
         except ValueError as e:
             # 处理参数验证错误
             return JSONResponse(
-                content=Result(code=ResultEnum.ERROR, message=str(e)).model_dump(),
+                content=Result(
+                    code=ResultEnum.ERROR.value,
+                    message=str(e),
+                ).model_dump(),
             )
         except Exception as e:
             return JSONResponse(
                 content=Result(
-                    code=ResultEnum.ERROR,
+                    code=ResultEnum.ERROR.value,
                     message=f"{str(e)}",
                 ).model_dump(),
             )

@@ -29,7 +29,7 @@ async def test_create_doc(
 @pytest.mark.asyncio
 async def test_read_doc(sample_doc: int, doc_svc: DocService):
     """测试读取单个文档"""
-    doc = await doc_svc.read_doc(doc_id=sample_doc)
+    doc = await doc_svc.get_doc(doc_id=sample_doc)
 
     assert doc is not None
     assert doc.id == sample_doc
@@ -59,7 +59,7 @@ async def test_delete_doc(sample_doc: int, doc_svc: DocService):
     result = await doc_svc.delete_doc(doc_id=sample_doc)
     assert result is True
 
-    doc = await doc_svc.read_doc(doc_id=sample_doc)
+    doc = await doc_svc.get_doc(doc_id=sample_doc)
     assert doc is None
 
 

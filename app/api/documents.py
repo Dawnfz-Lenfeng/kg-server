@@ -46,7 +46,6 @@ async def extract_doc(
 ):
     """提取文档 - 异步处理"""
     await doc_svc.update_doc_state(doc_id, DocState.EXTRACTING)
-
     await redis.enqueue_job("extract_doc", doc_id, ExtractConfig())
 
 
@@ -59,7 +58,6 @@ async def normalize_doc(
 ):
     """标准化文档 - 异步处理"""
     await doc_svc.update_doc_state(doc_id, DocState.NORMALIZING)
-
     await redis.enqueue_job("normalize_doc", doc_id, NormalizeConfig())
 
 
@@ -76,33 +74,18 @@ async def update_doc(
     return updated
 
 
-@router.get("/{doc_id}/text")
-async def read_doc_text(
+@router.get("/{doc_id}/download")
+async def download_doc(
     doc_id: int,
-    normalized: bool = Query(True, description="是否获取标准化文本"),
-    doc_svc: DocService = Depends(get_doc_svc),
-) -> str:
-    """获取文档文本内容"""
-    state = DocState.NORMALIZED if normalized else DocState.EXTRACTED
-    text = await doc_svc.read_doc_text(doc_id, state)
-    if text is None:
-        raise HTTPException(status_code=404, detail="Document text not found")
-    return text
-
-
-@router.get("/{doc_id}/file")
-async def get_doc_file(
-    doc_id: int,
+    state: DocState = Query(DocState.UPLOADED, description="下载文件状态"),
     doc_svc: DocService = Depends(get_doc_svc),
 ):
     """下载文档文件"""
-    doc = await doc_svc.read_doc(doc_id)
-    if doc is None:
-        raise HTTPException(status_code=404, detail="Document not found")
-
+    path, filename = await doc_svc.download_doc(doc_id, state)
+    print(path, filename)
     return FileResponse(
-        doc.upload_path,
-        filename=f"{doc.title}.{doc.file_type}",
+        path,
+        filename=filename,
         media_type="application/octet-stream",
     )
 

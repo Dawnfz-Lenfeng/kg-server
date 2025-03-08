@@ -1,6 +1,7 @@
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import typer
@@ -12,6 +13,13 @@ def init_database(root_dir: Path):
     """初始化数据库"""
     print("Initializing database...")
     subprocess.run([sys.executable, "scripts/init_db.py"], cwd=root_dir, check=True)
+
+
+def start_worker(root_dir: Path) -> subprocess.Popen:
+    """启动 worker 进程"""
+    return subprocess.Popen(
+        [sys.executable, "-m", "arq", "app.core.arq.WorkerSettings"], cwd=root_dir
+    )
 
 
 def handle_sigterm(api_process: subprocess.Popen, worker_process: subprocess.Popen):
@@ -40,17 +48,19 @@ def dev(init: bool = typer.Option(False, "--init", help="初始化数据库")):
         [sys.executable, "-m", "uvicorn", "app.main:app", "--reload"], cwd=root_dir
     )
 
-    worker_process = subprocess.Popen(
-        [sys.executable, "-m", "arq", "app.core.arq.WorkerSettings"], cwd=root_dir
-    )
+    worker_process = start_worker(root_dir)
 
     # 注册信号处理器
     signal.signal(signal.SIGINT, handle_sigterm(api_process, worker_process))
-    signal.signal(signal.SIGTERM, handle_sigterm(api_process, worker_process))
 
-    # 等待进程结束
-    api_process.wait()
-    worker_process.wait()
+    # 监控进程状态
+    while True:
+        # 检查 worker 进程
+        if worker_process.poll() is not None:
+            print("Worker process terminated, restarting...")
+            worker_process = start_worker(root_dir)
+
+        time.sleep(1)  # 避免过于频繁的检查
 
 
 @cli.command()

@@ -20,7 +20,7 @@ class DocKeywordService:
         self, doc_id: int, keyword_names: list[str], subject: Subject
     ) -> Document | None:
         """从文本导入关键词并关联到文档"""
-        doc = await self.doc_svc.read_doc(doc_id)
+        doc = await self.doc_svc.get_doc(doc_id)
         if doc is None:
             return None
 

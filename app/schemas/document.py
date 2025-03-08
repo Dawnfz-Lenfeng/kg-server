@@ -20,11 +20,13 @@ class FileType(str, Enum):
 class DocState(str, Enum):
     """文档处理状态"""
 
-    UPLOADED = "UPLOADED"  # 已上传
-    EXTRACTING = "EXTRACTING"  # 提取中
-    EXTRACTED = "EXTRACTED"  # 已提取
-    NORMALIZING = "NORMALIZING"  # 标准化中
-    NORMALIZED = "NORMALIZED"  # 已标准化
+    # 已完成状态
+    UPLOADED = "uploaded"  # 已上传
+    EXTRACTED = "extracted"  # 已提取
+    NORMALIZED = "normalized"  # 已标准化
+    # 处理中状态
+    EXTRACTING = "extracting"  # 提取中
+    NORMALIZING = "normalizing"  # 标准化中
 
     def __lt__(self, other: str) -> bool:
         """状态比较：用于判断处理进度"""
@@ -36,6 +38,16 @@ class DocState(str, Enum):
             self.NORMALIZED,
         ]
         return order.index(self) < order.index(other)
+
+    @property
+    def is_finished(self) -> bool:
+        """是否是完成状态"""
+        return self in {self.UPLOADED, self.EXTRACTED, self.NORMALIZED}
+
+    @property
+    def is_processing(self) -> bool:
+        """是否是处理中状态"""
+        return self in {self.EXTRACTING, self.NORMALIZING}
 
 
 class DocBase(BaseModel):
