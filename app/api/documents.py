@@ -76,18 +76,6 @@ async def update_doc(
     return updated
 
 
-@router.get("/{doc_id}", response_model=DocResponse)
-async def read_doc(
-    doc_id: int,
-    doc_svc: DocService = Depends(get_doc_svc),
-):
-    """获取文档"""
-    doc = await doc_svc.read_doc(doc_id)
-    if doc is None:
-        raise HTTPException(status_code=404, detail="Document not found")
-    return doc
-
-
 @router.get("/{doc_id}/text")
 async def read_doc_text(
     doc_id: int,

@@ -1,3 +1,4 @@
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -13,34 +14,43 @@ def init_database(root_dir: Path):
     subprocess.run([sys.executable, "scripts/init_db.py"], cwd=root_dir, check=True)
 
 
+def handle_sigterm(api_process: subprocess.Popen, worker_process: subprocess.Popen):
+    """处理终止信号"""
+
+    def handler(signum, frame):
+        print("\nShutting down gracefully...")
+        api_process.terminate()
+        worker_process.terminate()
+        api_process.wait()
+        worker_process.wait()
+        sys.exit(0)
+
+    return handler
+
+
 @cli.command()
 def dev(init: bool = typer.Option(False, "--init", help="初始化数据库")):
     """启动开发服务器和 worker"""
-    # 获取项目根目录
     root_dir = Path(__file__).parent.parent
 
-    # 如果需要初始化数据库
     if init:
         init_database(root_dir)
 
-    # 启动 FastAPI 服务
     api_process = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app.main:app", "--reload"], cwd=root_dir
     )
 
-    # 启动 Arq worker
     worker_process = subprocess.Popen(
         [sys.executable, "-m", "arq", "app.core.arq.WorkerSettings"], cwd=root_dir
     )
 
-    try:
-        # 等待任意一个进程结束
-        api_process.wait()
-        worker_process.wait()
-    finally:
-        # 确保两个进程都被终止
-        api_process.terminate()
-        worker_process.terminate()
+    # 注册信号处理器
+    signal.signal(signal.SIGINT, handle_sigterm(api_process, worker_process))
+    signal.signal(signal.SIGTERM, handle_sigterm(api_process, worker_process))
+
+    # 等待进程结束
+    api_process.wait()
+    worker_process.wait()
 
 
 @cli.command()

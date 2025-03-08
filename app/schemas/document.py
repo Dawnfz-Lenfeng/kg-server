@@ -88,7 +88,7 @@ class DocItem(BaseModel):
     fileSize: int = Field(..., description="文件大小")
     uploadTime: str = Field(..., description="上传时间")
     url: str = Field(..., description="下载链接")
-    state: str= Field(..., description="文档状态")
+    state: str = Field(..., description="文档状态")
 
     @classmethod
     def from_doc(cls, doc: Document):
