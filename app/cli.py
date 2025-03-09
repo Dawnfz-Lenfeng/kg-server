@@ -66,18 +66,7 @@ def dev(init: bool = typer.Option(False, "--init", help="初始化数据库")):
 @cli.command()
 def api():
     """只启动 API 服务器"""
-    subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "app.main:app",
-            "--host",
-            "0.0.0.0",
-            "--port",
-            "8000",
-        ]
-    )
+    subprocess.run([sys.executable, "-m", "uvicorn", "app.main:app", "--reload"])
 
 
 @cli.command()

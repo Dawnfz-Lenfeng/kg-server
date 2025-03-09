@@ -45,7 +45,6 @@ async def extract_doc(
     doc_svc: DocService = Depends(get_doc_svc),
 ):
     """提取文档 - 异步处理"""
-    await doc_svc.update_doc_state(doc_id, DocState.EXTRACTING)
     await redis.enqueue_job("extract_doc", doc_id, ExtractConfig())
 
 
@@ -57,7 +56,6 @@ async def normalize_doc(
     doc_svc: DocService = Depends(get_doc_svc),
 ):
     """标准化文档 - 异步处理"""
-    await doc_svc.update_doc_state(doc_id, DocState.NORMALIZING)
     await redis.enqueue_job("normalize_doc", doc_id, NormalizeConfig())
 
 
@@ -82,7 +80,6 @@ async def download_doc(
 ):
     """下载文档文件"""
     path, filename = await doc_svc.download_doc(doc_id, state)
-    print(path, filename)
     return FileResponse(
         path,
         filename=filename,

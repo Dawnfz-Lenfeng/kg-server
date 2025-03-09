@@ -28,21 +28,18 @@ class Base(DeclarativeBase):
 
 async def get_db():
     """获取异步数据库会话"""
-    async with AsyncSessionLocal() as db:
-        try:
-            yield db
-        finally:
-            await db.close()
+    async with AsyncSessionLocal() as session:
+        yield session
 
 
 @asynccontextmanager
-async def transaction(db: AsyncSession):
+async def transaction(session: AsyncSession):
     """异步事务上下文管理器"""
     try:
         yield
-        await db.commit()
+        await session.commit()
     except Exception:
-        await db.rollback()
+        await session.rollback()
         raise
 
 

@@ -99,6 +99,7 @@ class DocItem(BaseModel):
     fileName: str = Field(..., description="文件名")
     fileSize: int = Field(..., description="文件大小")
     uploadTime: str = Field(..., description="上传时间")
+    updateTime: str = Field(..., description="最后更新时间")
     url: str = Field(..., description="下载链接")
     state: str = Field(..., description="文档状态")
 
@@ -109,7 +110,8 @@ class DocItem(BaseModel):
             id=doc.id,
             fileName=doc.file_name,
             fileSize=doc.file_size,
-            uploadTime=doc.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
+            uploadTime=doc.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            updateTime=doc.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
             url=doc.url,
             state=doc.state.value,
         )

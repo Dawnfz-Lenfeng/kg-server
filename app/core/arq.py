@@ -8,15 +8,15 @@ from ..settings import settings
 
 async def extract_doc(ctx, doc_id: int, config: ExtractConfig):
     """文档提取任务"""
-    async with AsyncSessionLocal() as db:
-        doc_service = DocService(db)
+    async with AsyncSessionLocal() as session:
+        doc_service = DocService(session)
         await doc_service.extract_doc(doc_id, config)
 
 
-async def normalize_doc(ctx, doc_id: int, config: ExtractConfig):
+async def normalize_doc(ctx, doc_id: int, config: NormalizeConfig):
     """文档标准化任务"""
-    async with AsyncSessionLocal() as db:
-        doc_service = DocService(db)
+    async with AsyncSessionLocal() as session:
+        doc_service = DocService(session)
         await doc_service.normalize_doc(doc_id, config)
 
 

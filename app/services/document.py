@@ -1,15 +1,16 @@
-from datetime import datetime
+import logging
 
 import aiofiles
 from kgtools.preprocessing import extract_text, normalize_text
 from kgtools.schemas.preprocessing import ExtractConfig, NormalizeConfig
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from ..database import transaction
 from ..models import Document
 from ..schemas.document import DocCreate, DocItem, DocState, DocUpdate
+
+logger = logging.getLogger(__name__)
 
 
 class DocService:
@@ -33,10 +34,15 @@ class DocService:
 
     async def extract_doc(self, doc_id: int, config: ExtractConfig):
         """提取文档内容"""
+        doc = await self.get_doc(doc_id)
+        if not doc:
+            raise ValueError(f"Document {doc_id} not found")
+
+        current_state = doc.state
         try:
-            doc = await self.get_doc(doc_id)
-            if not doc:
-                raise ValueError(f"Document {doc_id} not found")
+            async with transaction(self.db):
+                doc.state = DocState.EXTRACTING
+            await self.db.refresh(doc)
 
             text = extract_text(
                 doc.upload_path,
@@ -46,17 +52,24 @@ class DocService:
 
             async with transaction(self.db):
                 await doc.write_text(text, DocState.EXTRACTED)
+                doc.state = DocState.EXTRACTED
 
         except Exception as e:
-            await self.update_doc_state(doc_id, DocState.UPLOADED)
-            raise e
+            logger.error(f"Error extracting document {doc_id}: {e}")
+            async with transaction(self.db):
+                doc.state = current_state
 
     async def normalize_doc(self, doc_id: int, config: NormalizeConfig) -> None:
         """标准化文档内容"""
+        doc = await self.get_doc(doc_id)
+        if not doc:
+            raise ValueError(f"Document {doc_id} not found")
+
+        current_state = doc.state
         try:
-            doc = await self.get_doc(doc_id)
-            if not doc:
-                raise ValueError(f"Document {doc_id} not found")
+            async with transaction(self.db):
+                doc.state = DocState.NORMALIZING
+            await self.db.refresh(doc)
 
             async with aiofiles.open(doc.extracted_path, "r", encoding="utf-8") as f:
                 raw_text = await f.read()
@@ -70,8 +83,9 @@ class DocService:
                 await doc.write_text(normalized_text, DocState.NORMALIZED)
 
         except Exception as e:
-            await self.update_doc_state(doc_id, DocState.EXTRACTED)
-            raise e
+            logger.error(f"Error normalizing document {doc_id}: {e}")
+            async with transaction(self.db):
+                doc.state = current_state
 
     async def update_doc(self, doc_id: int, doc_update: DocUpdate) -> Document | None:
         """更新文档信息"""
@@ -89,23 +103,9 @@ class DocService:
         await self.db.refresh(doc)
         return doc
 
-    async def update_doc_state(self, doc_id: int, state: DocState):
-        """更新文档状态"""
-        doc = await self.get_doc(doc_id)
-        if doc is None:
-            raise ValueError(f"Document {doc_id} not found")
-
-        async with transaction(self.db):
-            doc.state = state
-            doc.updated_at = datetime.now()
-
     async def get_doc(self, doc_id: int) -> Document | None:
         """读取文档"""
-        result = await self.db.execute(
-            select(Document)
-            .where(Document.id == doc_id)
-            .options(selectinload(Document.keywords))
-        )
+        result = await self.db.execute(select(Document).where(Document.id == doc_id))
         return result.scalar_one_or_none()
 
     async def get_doc_list(self, skip: int = 0, limit: int = 10):
