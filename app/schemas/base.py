@@ -15,11 +15,9 @@ class ResultEnum(Enum):
 class Result(BaseModel, Generic[T]):
     """通用响应模型"""
 
-    code: ResultEnum = Field(default=ResultEnum.SUCCESS, description="响应码")
+    code: int = Field(default=ResultEnum.SUCCESS.value, description="响应码")
     message: str | None = Field(default=None, description="响应信息")
     result: T | None = Field(default=None, description="响应数据")
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class DocBrief(BaseModel):

@@ -6,10 +6,10 @@ from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..config import settings
 from ..database import transaction
 from ..models.user import User
 from ..schemas.user import LoginParams, LoginResult, RegisterParams, RoleInfo
+from ..settings import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 PERM_CODES = {

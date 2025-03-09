@@ -13,9 +13,8 @@ async def test_create_doc(
     """测试创建文档"""
     doc_create = DocCreate(
         title="新建文档",
-        file_name=uploaded_file_name,
+        local_file_name=uploaded_file_name,
         file_type="pdf",
-        subject_id=1,
     )
     doc = await doc_svc.create_doc(doc_create)
 
@@ -30,7 +29,7 @@ async def test_create_doc(
 @pytest.mark.asyncio
 async def test_read_doc(sample_doc: int, doc_svc: DocService):
     """测试读取单个文档"""
-    doc = await doc_svc.read_doc(doc_id=sample_doc)
+    doc = await doc_svc.get_doc(doc_id=sample_doc)
 
     assert doc is not None
     assert doc.id == sample_doc
@@ -60,7 +59,7 @@ async def test_delete_doc(sample_doc: int, doc_svc: DocService):
     result = await doc_svc.delete_doc(doc_id=sample_doc)
     assert result is True
 
-    doc = await doc_svc.read_doc(doc_id=sample_doc)
+    doc = await doc_svc.get_doc(doc_id=sample_doc)
     assert doc is None
 
 
@@ -71,7 +70,7 @@ async def test_extract_doc_text(
 ):
     """测试提取文档文本"""
     config = ExtractConfig(ocr_engine=ocr_engine, force_ocr=True, last_page=1)
-    doc = await doc_svc.extract_doc_text(
+    doc = await doc_svc.extract_doc(
         doc_id=sample_doc,
         extract_config=config,
     )
@@ -83,11 +82,11 @@ async def test_extract_doc_text(
 @pytest.mark.asyncio
 async def test_normalize_doc_text(sample_doc: int, doc_svc: DocService):
     """测试清洗文档文本"""
-    await doc_svc.extract_doc_text(
+    await doc_svc.extract_doc(
         doc_id=sample_doc, extract_config=ExtractConfig(last_page=1)
     )
 
-    doc = await doc_svc.normalize_doc_text(
+    doc = await doc_svc.normalize_doc(
         doc_id=sample_doc, normalize_config=NormalizeConfig()
     )
 

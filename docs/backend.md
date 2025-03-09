@@ -73,7 +73,6 @@ class Document(Base):
     state: Mapped[DocState]
     word_count: Mapped[int | None]
     
-    subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"))
     keywords: Mapped[set[Keyword]] = relationship(secondary=document_keywords)
 ```
 
@@ -165,20 +164,7 @@ class GraphService:
 
 ## 6. 异步处理
 
-### 6.1 数据库操作
-```python
-@asynccontextmanager
-async def transaction(db: AsyncSession):
-    """异步事务上下文管理器"""
-    try:
-        yield
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        raise
-```
-
-### 6.2 文件操作
+### 6.1 文件操作
 ```python
 async def save_file(file: UploadFile) -> str:
     """异步保存文件"""
