@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..core.response import response_wrapper
+from ..core.response import to_response
 from ..dependencies.auth import get_auth_svc, get_current_user
 from ..models.user import User
 from ..schemas.user import (
@@ -16,7 +16,7 @@ router = APIRouter(tags=["auth"])
 
 
 @router.post("/login")
-@response_wrapper
+@to_response
 async def login(
     params: LoginParams,
     auth_svc: AuthService = Depends(get_auth_svc),
@@ -28,7 +28,7 @@ async def login(
 
 
 @router.get("/getUserInfo")
-@response_wrapper
+@to_response
 async def get_user_info(user: User = Depends(get_current_user)):
     return UserInfo(
         roles=[RoleInfo(roleName=user.role_name, value=user.role_value)],
@@ -41,7 +41,7 @@ async def get_user_info(user: User = Depends(get_current_user)):
 
 
 @router.get("/getPermCode")
-@response_wrapper
+@to_response
 async def get_perm_code(
     user: User = Depends(get_current_user),
     auth_svc: AuthService = Depends(get_auth_svc),
@@ -50,7 +50,7 @@ async def get_perm_code(
 
 
 @router.get("/logout")
-@response_wrapper
+@to_response
 async def logout():
     return "退出登录成功"
 

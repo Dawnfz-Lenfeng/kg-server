@@ -87,7 +87,7 @@ class DocService:
             async with transaction(self.db):
                 doc.state = current_state
 
-    async def update_doc(self, doc_id: int, doc_update: DocUpdate) -> Document | None:
+    async def update_doc(self, doc_id: int, doc_update: DocUpdate):
         """更新文档信息"""
         doc = await self.get_doc(doc_id)
         if doc is None:
@@ -99,9 +99,6 @@ class DocService:
             )
             for key, value in update_data.items():
                 setattr(doc, key, value)
-
-        await self.db.refresh(doc)
-        return doc
 
     async def get_doc(self, doc_id: int) -> Document | None:
         """读取文档"""
@@ -122,7 +119,7 @@ class DocService:
             .order_by(Document.created_at.desc())
         )
         docs = result.scalars().all()
-        items = [DocItem.from_doc(doc) for doc in docs]  # type: ignore
+        items = [DocItem.model_validate(doc) for doc in docs]
 
         return items, total
 

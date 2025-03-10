@@ -3,17 +3,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from kgtools.schemas.preprocessing import ExtractConfig, NormalizeConfig
 
-from ..core.response import response_wrapper
+from ..core.response import to_response
 from ..dependencies.documents import get_doc, get_doc_svc
 from ..dependencies.redis import get_redis
-from ..schemas.document import (
-    DocCreate,
-    DocList,
-    DocResponse,
-    DocState,
-    DocUpdate,
-    FileUploadResult,
-)
+from ..schemas.base import Page
+from ..schemas.document import DocCreate, DocState, DocUpdate, FileUploadResult
 from ..services import DocService
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -38,28 +32,26 @@ async def create_doc(
 
 
 @router.put("/{doc_id}/extract")
-@response_wrapper
+@to_response
 async def extract_doc(
     doc_id: int,
     redis: ArqRedis = Depends(get_redis),
-    doc_svc: DocService = Depends(get_doc_svc),
 ):
     """提取文档 - 异步处理"""
     await redis.enqueue_job("extract_doc", doc_id, ExtractConfig())
 
 
 @router.put("/{doc_id}/normalize")
-@response_wrapper
+@to_response
 async def normalize_doc(
     doc_id: int,
     redis: ArqRedis = Depends(get_redis),
-    doc_svc: DocService = Depends(get_doc_svc),
 ):
     """标准化文档 - 异步处理"""
     await redis.enqueue_job("normalize_doc", doc_id, NormalizeConfig())
 
 
-@router.put("/{doc_id}", response_model=DocResponse)
+@router.put("/{doc_id}")
 async def update_doc(
     doc_id: int,
     doc: DocUpdate,
@@ -69,7 +61,6 @@ async def update_doc(
     updated = await doc_svc.update_doc(doc_id, doc)
     if updated is None:
         raise HTTPException(status_code=404, detail="Document not found")
-    return updated
 
 
 @router.get("/{doc_id}/download")
@@ -88,16 +79,16 @@ async def download_doc(
 
 
 @router.get("")
-@response_wrapper
+@to_response
 async def get_doc_list(
     page: int = Query(1, ge=1, description="页码"),
     pageSize: int = Query(10, ge=1, le=100, description="每页数量"),
     doc_svc: DocService = Depends(get_doc_svc),
-) -> DocList:
+):
     """获取文档列表"""
     skip = (page - 1) * pageSize
     items, total = await doc_svc.get_doc_list(skip=skip, limit=pageSize)
-    return DocList(
+    return Page(
         items=items,
         total=total,
         page=page,
@@ -106,7 +97,7 @@ async def get_doc_list(
 
 
 @router.delete("/{doc_id}")
-@response_wrapper
+@to_response
 async def delete_doc(
     doc_id: int,
     doc_svc: DocService = Depends(get_doc_svc),
