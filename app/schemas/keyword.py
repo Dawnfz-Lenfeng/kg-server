@@ -16,12 +16,6 @@ class KeywordCreate(KeywordBase):
     """创建关键词请求模型"""
 
 
-class KeywordUpdate(BaseModel):
-    """更新关键词请求模型"""
-
-    name: str | None = Field(None, description="关键词名称", examples=["深度学习"])
-
-
 class KeywordItem(KeywordBase):
     """关键词列表项模型"""
 
