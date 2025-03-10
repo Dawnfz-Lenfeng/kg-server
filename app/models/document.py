@@ -33,7 +33,6 @@ class Document(Base):
         secondary=document_keywords,
         collection_class=set,
         back_populates="documents",
-        lazy="selectin",
     )
 
     @property

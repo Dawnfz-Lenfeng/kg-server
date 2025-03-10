@@ -1,7 +1,11 @@
-from fastapi import Depends, File, HTTPException, UploadFile
+from io import StringIO
+
+import pandas as pd
+from fastapi import Depends, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
+from ..schemas.keyword import KeywordCreate
 from ..services import DocKeywordService, KeywordService
 
 
@@ -13,14 +17,19 @@ async def get_doc_kw_svc(db: AsyncSession = Depends(get_db)):
     return DocKeywordService(db)
 
 
-async def get_keywords(file: UploadFile = File(...)):
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="File name is required")
+async def get_keywords(
+    file: UploadFile = File(...),
+) -> list[KeywordCreate]:
+    """从上传的文件中读取关键词列表"""
+    content = await file.read()
+    df = pd.read_csv(StringIO(content.decode("utf-8")))
 
-    if not file.filename.endswith(".txt"):
-        raise HTTPException(status_code=400, detail="Only .txt files are allowed")
+    if "keyword" not in df.columns or "subject" not in df.columns:
+        raise ValueError("文件必须包含 'keyword' 和 'subject' 列")
 
-    content = (await file.read()).decode("utf-8")
-    keywords = [line.strip() for line in content.splitlines() if line.strip()]
+    keywords = [
+        KeywordCreate(name=row["keyword"], subject=row["subject"])
+        for _, row in df.iterrows()
+    ]
 
     return keywords

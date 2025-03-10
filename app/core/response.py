@@ -9,7 +9,7 @@ from ..schemas.base import Result, ResultEnum
 T = TypeVar("T")
 
 
-def response_wrapper(func: Callable[..., Any]) -> Callable[..., Any]:
+def to_response(func: Callable[..., Any]) -> Callable[..., Any]:
     """响应包装装饰器"""
 
     @wraps(func)

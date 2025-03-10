@@ -2,14 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, ConfigDict, Field
-
-from .base import KeywordBrief
-
-if TYPE_CHECKING:
-    from ..models import Document
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class FileType(str, Enum):
@@ -69,20 +63,6 @@ class DocUpdate(BaseModel):
     title: str | None = Field(None, description="文档标题")
 
 
-class DocResponse(DocBase):
-    """文档响应模型"""
-
-    id: int = Field(..., description="文档ID")
-    file_name: str = Field(..., description="文件名称")
-    state: DocState = Field(..., description="文档处理状态")
-    word_count: int | None = Field(None, description="文档字数")
-    keywords: list[KeywordBrief] = Field(default_factory=list, description="关键词列表")
-    created_at: datetime = Field(..., description="创建时间")
-    updated_at: datetime | None = Field(None, description="最后更新时间")
-
-    model_config = ConfigDict(from_attributes=True, json_encoders={set: list})
-
-
 class FileUploadResult(BaseModel):
     """文件上传结果 - 匹配前端 UploadApiResult"""
 
@@ -96,31 +76,20 @@ class DocItem(BaseModel):
     """文档列表项"""
 
     id: int = Field(..., description="文档ID")
-    fileName: str = Field(..., description="文件名")
-    fileSize: int = Field(..., description="文件大小")
-    uploadTime: str = Field(..., description="上传时间")
-    updateTime: str = Field(..., description="最后更新时间")
+    file_name: str = Field(..., description="文件名")
+    file_size: int = Field(..., description="文件大小")
+    created_at: str = Field(..., description="上传时间")
+    updated_at: str = Field(..., description="最后更新时间")
     url: str = Field(..., description="下载链接")
     state: str = Field(..., description="文档状态")
 
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+    @field_validator("created_at", "updated_at", mode="before")
     @classmethod
-    def from_doc(cls, doc: Document):
-        """从文档数据创建列表项"""
-        return cls(
-            id=doc.id,
-            fileName=doc.file_name,
-            fileSize=doc.file_size,
-            uploadTime=doc.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            updateTime=doc.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
-            url=doc.url,
-            state=doc.state.value,
-        )
-
-
-class DocList(BaseModel):
-    """文档列表响应"""
-
-    items: list[DocItem] = Field(..., description="文档列表")
-    total: int = Field(..., description="总数")
-    page: int = Field(..., description="当前页码")
-    pageSize: int = Field(..., description="每页数量")
+    def convert_datetime_to_str(cls, v):
+        if isinstance(v, datetime):
+            return v.strftime("%Y-%m-%d %H:%M:%S")
+        return v
