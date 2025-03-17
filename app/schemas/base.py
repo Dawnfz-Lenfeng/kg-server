@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 T = TypeVar("T")
 
@@ -15,26 +15,15 @@ class ResultEnum(Enum):
 class Result(BaseModel, Generic[T]):
     """通用响应模型"""
 
-    code: ResultEnum = Field(default=ResultEnum.SUCCESS, description="响应码")
+    code: int = Field(default=ResultEnum.SUCCESS.value, description="响应码")
     message: str | None = Field(default=None, description="响应信息")
     result: T | None = Field(default=None, description="响应数据")
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
 
+class Page(BaseModel, Generic[T]):
+    """通用分页响应模型"""
 
-class DocBrief(BaseModel):
-    """文档简要信息（用于关联展示）"""
-
-    id: int = Field(..., description="文档ID")
-    title: str = Field(..., description="文档标题")
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class KeywordBrief(BaseModel):
-    """关键词简要信息（用于关联展示）"""
-
-    id: int = Field(..., description="关键词ID")
-    name: str = Field(..., description="关键词名称")
-
-    model_config = ConfigDict(from_attributes=True)
+    items: list[T] = Field(..., description="列表内容")
+    total: int = Field(..., description="总数")
+    page: int = Field(..., description="当前页码")
+    pageSize: int = Field(..., description="每页数量")

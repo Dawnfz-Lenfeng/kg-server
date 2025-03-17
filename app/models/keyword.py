@@ -6,11 +6,12 @@ from sqlalchemy import Column, ForeignKey, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
+from ..schemas.subject import Subject
 
 if TYPE_CHECKING:
     from .document import Document
 
-# 定义关联表
+
 document_keywords = Table(
     "document_keywords",
     Base.metadata,
@@ -24,6 +25,7 @@ class Keyword(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(nullable=False, unique=True)
+    subject: Mapped[Subject] = mapped_column(nullable=False)
 
     documents: Mapped[set[Document]] = relationship(
         "Document",

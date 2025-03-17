@@ -2,17 +2,20 @@ from pathlib import Path
 
 from httpx import AsyncClient
 
+from app.schemas.subject import Subject
+
 
 async def test_create_keyword(client: AsyncClient):
     """测试创建单个关键词"""
     response = await client.post(
         "/keywords",
-        json={"name": "测试关键词"},
+        json={"name": "测试关键词", "subject": Subject.ECONOMICS},
     )
 
     assert response.status_code == 200
     keyword = response.json()
     assert keyword["name"] == "测试关键词"
+    assert keyword["subject"] == Subject.ECONOMICS
 
     await client.delete(f"/keywords/{keyword['id']}")
 

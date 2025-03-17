@@ -1,9 +1,24 @@
+from contextlib import asynccontextmanager
+
+from arq import create_pool
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api import api_router
-from .config import settings
-from .database import lifespan
+from .core.arq import WorkerSettings
+from .database import lifespan as db_lifespan
+from .settings import settings
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期管理"""
+    async with db_lifespan(app):
+        redis_settings = WorkerSettings.redis_settings
+        app.state.redis = await create_pool(redis_settings)
+        yield
+        await app.state.redis.close()
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

@@ -39,12 +39,10 @@ docker-compose exec db psql -U dev_user -d ckgcus
 |title|`str`|文档标题|否|
 |file_path|`str`|文件地址|否|
 |file_type|`str`|文件类型|否|
-|subject_id|`int`|学科编号；外键|否|
 |origin_text|`str`|原文本|是|
 |processed_text|`str`|清洗后文本|是|
 |created_at|`datetime`|创建时间|否|
 |updated_at|`datetime`|修改时间|否|
-|subject|`Subject`|学科；关联属性学科表|是|
 |keywords|`list[Keyword]`|关键词；关联关键词表|是|
 
 ### 学科表 (subjects)

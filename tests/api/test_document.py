@@ -12,41 +12,15 @@ async def test_create_doc_api(client: AsyncClient, pdf_file: UploadFile):
     response = await client.post(
         "/documents",
         files={"file": (pdf_file.filename, await pdf_file.read())},
-        data={"subject_id": 1},
     )
 
     assert response.status_code == 200
     data = response.json()
     assert data["success"] is True
     assert data["document"]["title"] is not None
-    assert data["document"]["subject_id"] == 1
     assert data["document"]["state"] == DocState.UPLOADED
 
     await client.delete(f"/documents/{data['document']['id']}")
-
-
-@pytest.mark.asyncio
-async def test_create_docs_api(client: AsyncClient, pdf_files: list[UploadFile]):
-    """测试批量上传文档API"""
-    files = []
-    for f in pdf_files:
-        content = await f.read()
-        files.append(("files", (f.filename, content)))
-
-    response = await client.post(
-        "/documents/batch",
-        files=files,
-        data={"subject_id": 1},
-    )
-
-    assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
-    assert all(item["success"] for item in data)
-    assert all(item["document"]["title"] for item in data)
-
-    for item in data:
-        await client.delete(f"/documents/{item['document']['id']}")
 
 
 @pytest.mark.asyncio
@@ -119,17 +93,6 @@ async def test_read_docs_api(client: AsyncClient, sample_doc: int):
     assert isinstance(data, list)
     assert len(data) > 0
     assert all(doc["id"] for doc in data)
-
-
-@pytest.mark.asyncio
-async def test_read_docs_with_subject_api(client: AsyncClient):
-    """测试按学科获取文档列表API"""
-    response = await client.get("/documents?subject_id=1")
-
-    assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
-    assert all(doc["subject_id"] == 1 for doc in data)
 
 
 @pytest.mark.asyncio
