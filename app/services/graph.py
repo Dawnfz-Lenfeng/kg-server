@@ -8,7 +8,7 @@ from sqlalchemy.future import select
 
 from ..database import transaction
 from ..models import Edge, Keyword
-from ..schemas.graph import EdgeBase
+from ..schemas.graph import EdgeBase, GraphBase, NodeBase, NodeData
 
 
 class GraphService:
@@ -47,8 +47,22 @@ class GraphService:
         """从数据库中提取知识图谱"""
         result = await self.db.execute(select(Edge))
         edges = result.scalars().all()
+        if not edges:
+            return None
 
-        return [
-            EdgeBase(source=edge.source, target=edge.target, weight=edge.weight)
-            for edge in edges
-        ]
+        result = await self.db.execute(select(Keyword))
+        nodes = result.scalars().all()
+        if not nodes:
+            return None
+
+        graph = GraphBase(
+            nodes=[
+                NodeBase(
+                    id=node.id,
+                    data=NodeData(name=node.name, subject=node.subject),
+                )
+                for node in nodes
+            ],
+            edges=[EdgeBase.model_validate(edge) for edge in edges],
+        )
+        return graph
