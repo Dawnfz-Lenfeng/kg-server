@@ -1,23 +1,66 @@
+import logging
+
 from arq.connections import RedisSettings
+from kgtools.schemas.graph import GraphConfig
 from kgtools.schemas.preprocessing import ExtractConfig, NormalizeConfig
 
 from ..database import AsyncSessionLocal
-from ..services.document import DocService
+from ..schemas.document import DocState
+from ..services import DocService, GraphService, KeywordService
 from ..settings import settings
+
+logger = logging.getLogger(__name__)
 
 
 async def extract_doc(ctx, doc_id: int, config: ExtractConfig):
     """文档提取任务"""
-    async with AsyncSessionLocal() as session:
-        doc_service = DocService(session)
-        await doc_service.extract_doc(doc_id, config)
+    try:
+        async with AsyncSessionLocal() as session:
+            doc_service = DocService(session)
+            await doc_service.extract_doc(doc_id, config)
+    except Exception as e:
+        logger.error(f"extract doc {doc_id} failed: {e}")
 
 
 async def normalize_doc(ctx, doc_id: int, config: NormalizeConfig):
     """文档标准化任务"""
-    async with AsyncSessionLocal() as session:
-        doc_service = DocService(session)
-        await doc_service.normalize_doc(doc_id, config)
+    try:
+        async with AsyncSessionLocal() as session:
+            doc_service = DocService(session)
+            await doc_service.normalize_doc(doc_id, config)
+    except Exception as e:
+        logger.error(f"normalize doc {doc_id} failed: {e}")
+
+
+async def build_graph(ctx, config: GraphConfig):
+    """构建知识图谱任务"""
+    try:
+        async with AsyncSessionLocal() as session:
+            doc_svc = DocService(session)
+            docs = await doc_svc.get_docs()
+
+            doc_texts = []
+            for doc in docs:
+                if doc.state != DocState.NORMALIZED:
+                    logger.warning(f"doc {doc.id} is not normalized")
+                    continue
+                doc_text = await doc.read_text(DocState.NORMALIZED)
+                doc_texts.append(doc_text)
+            if not doc_texts:
+                logger.warning("No normalized docs found")
+                return
+
+            kw_svc = KeywordService(session)
+            keywords = await kw_svc.get_keywords()
+            if not keywords:
+                logger.warning("No keywords found in documents")
+                return
+
+            graph_service = GraphService(session)
+            await graph_service.build_graph(doc_texts, keywords, config)
+
+    except Exception as e:
+        logger.error(f"build graph failed: {e}")
 
 
 class WorkerSettings:
@@ -28,4 +71,4 @@ class WorkerSettings:
         port=settings.REDIS_PORT,
         database=settings.REDIS_DB,
     )
-    functions = [extract_doc, normalize_doc]
+    functions = [extract_doc, normalize_doc, build_graph]

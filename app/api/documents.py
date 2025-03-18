@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse
 from kgtools.schemas.preprocessing import ExtractConfig, NormalizeConfig
 
 from ..core.response import to_response
-from ..dependencies.documents import get_doc, get_doc_svc
+from ..dependencies.document import get_doc, get_doc_svc
 from ..dependencies.redis import get_redis
 from ..schemas.base import Page
 from ..schemas.document import DocCreate, DocState, DocUpdate, FileUploadResult

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..core.response import to_response
-from ..dependencies.keywords import get_keywords, get_kw_svc
+from ..dependencies.keyword import get_keywords, get_kw_svc
 from ..schemas.base import Page
 from ..schemas.keyword import KeywordCreate
 from ..schemas.subject import Subject

@@ -1,30 +1,31 @@
+from arq import ArqRedis
 from fastapi import APIRouter, Depends, HTTPException
-from ..schemas.graph import GraphBuildResult, EdgeBase
-from ..services.graph import GraphService
+from kgtools.schemas.graph import GraphConfig
+
+from ..core.response import to_response
 from ..dependencies.graph import get_graph_svc
-from typing import List
+from ..dependencies.redis import get_redis
+from ..services import GraphService
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 
 
-@router.post("/build", response_model=GraphBuildResult)
+@router.post("/build")
+@to_response
 async def build_graph(
-    graph_svc: GraphService = Depends(get_graph_svc),
-) -> GraphBuildResult:
+    redis: ArqRedis = Depends(get_redis),
+):
     """构建知识图谱"""
-    try:
-        graph = await graph_svc.build_graph()
-        return GraphBuildResult(success=True, error=None, graph=graph)
-    except Exception as e:
-        return GraphBuildResult(success=False, error=str(e), graph=None)
+    await redis.enqueue_job("build_graph", GraphConfig())
 
 
-@router.get("/extract", response_model=List[EdgeBase])
-async def extract_graph(
+@router.get("")
+@to_response
+async def get_graph(
     graph_svc: GraphService = Depends(get_graph_svc),
-) -> List[EdgeBase]:
+):
     """提取知识图谱"""
-    graph = await graph_svc.extract_graph()
+    graph = await graph_svc.get_graph()
     if not graph:
         raise HTTPException(status_code=404, detail="Graph not found")
     return graph

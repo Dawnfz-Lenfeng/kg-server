@@ -1,33 +1,49 @@
-from kgtools.kgtools.graph.build_graph import build_graph
+from typing import Sequence
+
+from kgtools.graph import build_graph as build_relation_matrix
+from kgtools.schemas.graph import GraphConfig
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from ..models.graph import Graph
-from ..schemas.graph import EdgeBase
+
 from ..database import transaction
+from ..models import Graph, Keyword
+from ..schemas.graph import EdgeBase
 
 
 class GraphService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def build_graph(self) -> list[EdgeBase]:
+    async def build_graph(
+        self, docs: list[str], keywords: Sequence[Keyword], graph_config: GraphConfig
+    ):
         """构建知识图谱并存入数据库"""
-        graph_data = await build_graph()
-        edges = graph_data.get("edges", [])
+        keyword_names = [keyword.name for keyword in keywords]
+
+        relation_matrix = build_relation_matrix(
+            docs, keyword_names, **graph_config.model_dump()
+        )
+
+        rows, cols = relation_matrix.nonzero()
+        edges = [
+            Graph(
+                source=keywords[i].id,
+                target=keywords[j].id,
+                weight=relation_matrix[i, j],
+            )
+            for i, j in zip(rows, cols)
+        ]
 
         async with transaction(self.db):
+            # 清除旧的图数据
+            await self.db.execute(delete(Graph))
+
             for edge in edges:
-                new_edge = Graph(
-                    source=edge["source"],
-                    target=edge["target"],
-                    weight=edge.get("weight"),
-                )
-                self.db.add(new_edge)
+                self.db.add(edge)
             await self.db.commit()
 
-        return await self.extract_graph()
-
-    async def extract_graph(self) -> list[EdgeBase]:
+    async def get_graph(self):
         """从数据库中提取知识图谱"""
         result = await self.db.execute(select(Graph))
         edges = result.scalars().all()

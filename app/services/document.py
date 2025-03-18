@@ -100,10 +100,15 @@ class DocService:
             for key, value in update_data.items():
                 setattr(doc, key, value)
 
-    async def get_doc(self, doc_id: int) -> Document | None:
+    async def get_doc(self, doc_id: int):
         """读取文档"""
         result = await self.db.execute(select(Document).where(Document.id == doc_id))
         return result.scalar_one_or_none()
+
+    async def get_docs(self):
+        """获取所有文档"""
+        result = await self.db.execute(select(Document))
+        return result.scalars().all()
 
     async def get_doc_list(self, skip: int = 0, limit: int = 10):
         """获取文档列表"""
