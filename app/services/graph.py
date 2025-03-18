@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from ..database import transaction
-from ..models import Graph, Keyword
+from ..models import Edge, Keyword
 from ..schemas.graph import EdgeBase
 
 
@@ -27,7 +27,7 @@ class GraphService:
 
         rows, cols = relation_matrix.nonzero()
         edges = [
-            Graph(
+            Edge(
                 source=keywords[i].id,
                 target=keywords[j].id,
                 weight=relation_matrix[i, j],
@@ -37,7 +37,7 @@ class GraphService:
 
         async with transaction(self.db):
             # 清除旧的图数据
-            await self.db.execute(delete(Graph))
+            await self.db.execute(delete(Edge))
 
             for edge in edges:
                 self.db.add(edge)
@@ -45,7 +45,7 @@ class GraphService:
 
     async def get_graph(self):
         """从数据库中提取知识图谱"""
-        result = await self.db.execute(select(Graph))
+        result = await self.db.execute(select(Edge))
         edges = result.scalars().all()
 
         return [

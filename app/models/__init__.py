@@ -1,3 +1,3 @@
 from .document import Document
-from .graph import Graph
+from .graph import Edge
 from .keyword import Keyword

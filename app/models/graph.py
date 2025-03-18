@@ -3,8 +3,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from ..database import Base
 
 
-class Graph(Base):
-    __tablename__ = "graphs"
+class Edge(Base):
+    __tablename__ = "edges"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     source: Mapped[int] = mapped_column(nullable=False)
