@@ -9,6 +9,7 @@ description = "Knowledge Graph Construction System Backend"
 authors = [{ name = "Dawnfz-Lenfeng", email = "2912706234@qq.com" }]
 requires-python = ">=3.10"
 dependencies = [
+    "openpyxl",
     "fastapi>=0.109.0",
     "uvicorn>=0.27.0",
     "sqlalchemy>=2.0.25",

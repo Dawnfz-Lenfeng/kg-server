@@ -1,4 +1,4 @@
-from io import StringIO
+from io import StringIO, BytesIO
 
 import pandas as pd
 from fastapi import Depends, File, UploadFile
@@ -21,8 +21,18 @@ async def get_keywords(
     file: UploadFile = File(...),
 ) -> list[KeywordCreate]:
     """从上传的文件中读取关键词列表"""
+    assert file.filename, "文件名不能为空"
+
     content = await file.read()
-    df = pd.read_csv(StringIO(content.decode("utf-8")))
+
+    file_type = file.filename.split(".")[-1]
+    match file_type:
+        case "csv":
+            df = pd.read_csv(StringIO(content.decode()))
+        case "xlsx":
+            df = pd.read_excel(BytesIO(content))
+        case _:
+            raise ValueError("不支持的文件类型")
 
     if "keyword" not in df.columns or "subject" not in df.columns:
         raise ValueError("文件必须包含 'keyword' 和 'subject' 列")

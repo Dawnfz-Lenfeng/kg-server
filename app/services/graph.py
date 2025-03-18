@@ -38,10 +38,8 @@ class GraphService:
         async with transaction(self.db):
             # 清除旧的图数据
             await self.db.execute(delete(Edge))
-
             for edge in edges:
                 self.db.add(edge)
-            await self.db.commit()
 
     async def get_graph(self):
         """从数据库中提取知识图谱"""
@@ -50,7 +48,8 @@ class GraphService:
         if not edges:
             return None
 
-        result = await self.db.execute(select(Keyword))
+        node_ids = {edge.source for edge in edges} | {edge.target for edge in edges}
+        result = await self.db.execute(select(Keyword).where(Keyword.id.in_(node_ids)))
         nodes = result.scalars().all()
         if not nodes:
             return None

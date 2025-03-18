@@ -14,13 +14,10 @@ class NodeBase(BaseModel):
 
 
 class EdgeBase(BaseModel):
-    id: int
     source: int
     target: int
 
-    model_config = ConfigDict(
-        from_attributes=True,
-    )
+    model_config = ConfigDict(from_attributes=True)
 
 
 class GraphBase(BaseModel):
