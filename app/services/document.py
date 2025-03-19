@@ -1,6 +1,3 @@
-import logging
-
-import aiofiles
 from kgtools.preprocessing import extract_text, normalize_text
 from kgtools.schemas.preprocessing import ExtractConfig, NormalizeConfig
 from sqlalchemy import func, select
@@ -8,16 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import transaction
 from ..models import Document
-from ..schemas.document import DocCreate, DocItem, DocState, DocUpdate
-
-logger = logging.getLogger(__name__)
+from ..schemas.document import DocCreate, DocItem, DocState
 
 
 class DocService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create_doc(self, doc_create: DocCreate) -> Document:
+    async def create_doc(self, doc_create: DocCreate):
         """创建文档"""
         db_doc = Document(**doc_create.model_dump())
         db_doc.create_dirs()
@@ -38,67 +33,40 @@ class DocService:
         if not doc:
             raise ValueError(f"Document {doc_id} not found")
 
-        current_state = doc.state
-        try:
-            async with transaction(self.db):
-                doc.state = DocState.EXTRACTING
-            await self.db.refresh(doc)
+        text = extract_text(
+            doc.upload_path,
+            file_type=doc.file_type,
+            **config.model_dump(),
+        )
 
-            text = extract_text(
-                doc.upload_path,
-                file_type=doc.file_type,
-                **config.model_dump(),
-            )
+        async with transaction(self.db):
+            await doc.write_text(text, DocState.EXTRACTED)
 
-            async with transaction(self.db):
-                await doc.write_text(text, DocState.EXTRACTED)
-                doc.state = DocState.EXTRACTED
-
-        except Exception as e:
-            logger.error(f"Error extracting document {doc_id}: {e}")
-            async with transaction(self.db):
-                doc.state = current_state
-
-    async def normalize_doc(self, doc_id: int, config: NormalizeConfig) -> None:
+    async def normalize_doc(self, doc_id: int, config: NormalizeConfig):
         """标准化文档内容"""
         doc = await self.get_doc(doc_id)
         if not doc:
             raise ValueError(f"Document {doc_id} not found")
 
-        current_state = doc.state
-        try:
-            async with transaction(self.db):
-                doc.state = DocState.NORMALIZING
-            await self.db.refresh(doc)
+        raw_text = await doc.read_text(DocState.EXTRACTED)
+        normalized_text = normalize_text(
+            raw_text,
+            **config.model_dump(),
+        )
 
-            async with aiofiles.open(doc.extracted_path, "r", encoding="utf-8") as f:
-                raw_text = await f.read()
+        async with transaction(self.db):
+            await doc.write_text(normalized_text, DocState.NORMALIZED)
 
-            normalized_text = normalize_text(
-                raw_text,
-                **config.model_dump(),
-            )
-
-            async with transaction(self.db):
-                await doc.write_text(normalized_text, DocState.NORMALIZED)
-
-        except Exception as e:
-            logger.error(f"Error normalizing document {doc_id}: {e}")
-            async with transaction(self.db):
-                doc.state = current_state
-
-    async def update_doc(self, doc_id: int, doc_update: DocUpdate):
+    async def update_doc_state(self, doc_id: int, state: DocState):
         """更新文档信息"""
         doc = await self.get_doc(doc_id)
         if doc is None:
-            return None
+            raise ValueError(f"Document {doc_id} not found")
 
+        current_state = doc.state
         async with transaction(self.db):
-            update_data = doc_update.model_dump(
-                exclude={"keywords"}, exclude_unset=True
-            )
-            for key, value in update_data.items():
-                setattr(doc, key, value)
+            doc.state = state
+        return current_state
 
     async def get_doc(self, doc_id: int):
         """读取文档"""
@@ -143,7 +111,7 @@ class DocService:
 
         return path, filename
 
-    async def delete_doc(self, doc_id: int) -> bool:
+    async def delete_doc(self, doc_id: int):
         """删除文档"""
         doc = await self.get_doc(doc_id)
         if doc is None:

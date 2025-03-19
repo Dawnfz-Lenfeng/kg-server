@@ -12,9 +12,7 @@ router = APIRouter(prefix="/graph", tags=["graph"])
 
 @router.post("/build")
 @to_response
-async def build_graph(
-    redis: ArqRedis = Depends(get_redis),
-):
+async def build_graph(redis: ArqRedis = Depends(get_redis)):
     """构建知识图谱"""
     await redis.enqueue_job("build_graph", GraphConfig())
 

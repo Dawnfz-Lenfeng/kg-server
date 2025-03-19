@@ -12,24 +12,40 @@ from ..settings import settings
 logger = logging.getLogger(__name__)
 
 
-async def extract_doc(ctx, doc_id: int, config: ExtractConfig):
+async def extract_doc(
+    ctx,
+    doc_id: int,
+    config: ExtractConfig,
+    current_state: DocState,
+):
     """文档提取任务"""
-    try:
-        async with AsyncSessionLocal() as session:
-            doc_service = DocService(session)
-            await doc_service.extract_doc(doc_id, config)
-    except Exception as e:
-        logger.error(f"extract doc {doc_id} failed: {e}")
+    async with AsyncSessionLocal() as session:
+        doc_svc = DocService(session)
+        try:
+            if current_state in {DocState.EXTRACTING, DocState.NORMALIZING}:
+                raise ValueError("doc is already processing")
+            await doc_svc.extract_doc(doc_id, config)
+        except Exception as e:
+            logger.error(f"extract doc {doc_id} failed: {e}")
+            await doc_svc.update_doc_state(doc_id, current_state)
 
 
-async def normalize_doc(ctx, doc_id: int, config: NormalizeConfig):
+async def normalize_doc(
+    ctx,
+    doc_id: int,
+    config: NormalizeConfig,
+    current_state: DocState,
+):
     """文档标准化任务"""
-    try:
-        async with AsyncSessionLocal() as session:
-            doc_service = DocService(session)
-            await doc_service.normalize_doc(doc_id, config)
-    except Exception as e:
-        logger.error(f"normalize doc {doc_id} failed: {e}")
+    async with AsyncSessionLocal() as session:
+        doc_svc = DocService(session)
+        try:
+            if current_state not in {DocState.EXTRACTED, DocState.NORMALIZED}:
+                raise ValueError("doc is not in extracted state")
+            await doc_svc.normalize_doc(doc_id, config)
+        except Exception as e:
+            logger.error(f"normalize doc {doc_id} failed: {e}")
+            await doc_svc.update_doc_state(doc_id, current_state)
 
 
 async def build_graph(ctx, config: GraphConfig):
@@ -56,8 +72,8 @@ async def build_graph(ctx, config: GraphConfig):
                 logger.warning("No keywords found in documents")
                 return
 
-            graph_service = GraphService(session)
-            await graph_service.build_graph(doc_texts, keywords, config)
+            graph_svc = GraphService(session)
+            await graph_svc.build_graph(doc_texts, keywords, config)
 
     except Exception as e:
         logger.error(f"build graph failed: {e}")

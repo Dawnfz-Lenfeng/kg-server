@@ -7,7 +7,7 @@ from ..core.response import to_response
 from ..dependencies.document import get_doc, get_doc_svc
 from ..dependencies.redis import get_redis
 from ..schemas.base import Page
-from ..schemas.document import DocCreate, DocState, DocUpdate, FileUploadResult
+from ..schemas.document import DocCreate, DocState, FileUploadResult
 from ..services import DocService
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -35,32 +35,24 @@ async def create_doc(
 @to_response
 async def extract_doc(
     doc_id: int,
+    doc_svc: DocService = Depends(get_doc_svc),
     redis: ArqRedis = Depends(get_redis),
 ):
     """提取文档 - 异步处理"""
-    await redis.enqueue_job("extract_doc", doc_id, ExtractConfig())
+    current_state = await doc_svc.update_doc_state(doc_id, DocState.EXTRACTING)
+    await redis.enqueue_job("extract_doc", doc_id, ExtractConfig(), current_state)
 
 
 @router.put("/{doc_id}/normalize")
 @to_response
 async def normalize_doc(
     doc_id: int,
+    doc_svc: DocService = Depends(get_doc_svc),
     redis: ArqRedis = Depends(get_redis),
 ):
     """标准化文档 - 异步处理"""
-    await redis.enqueue_job("normalize_doc", doc_id, NormalizeConfig())
-
-
-@router.put("/{doc_id}")
-async def update_doc(
-    doc_id: int,
-    doc: DocUpdate,
-    doc_svc: DocService = Depends(get_doc_svc),
-):
-    """更新文档"""
-    updated = await doc_svc.update_doc(doc_id, doc)
-    if updated is None:
-        raise HTTPException(status_code=404, detail="Document not found")
+    current_state = await doc_svc.update_doc_state(doc_id, DocState.NORMALIZING)
+    await redis.enqueue_job("normalize_doc", doc_id, NormalizeConfig(), current_state)
 
 
 @router.get("/{doc_id}/download")
