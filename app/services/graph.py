@@ -36,8 +36,7 @@ class GraphService:
         ]
 
         async with transaction(self.db):
-            # 清除旧的图数据
-            await self.db.execute(delete(Edge))
+            await self.db.execute(delete(Edge))  # 清除旧的图数据
             for edge in edges:
                 self.db.add(edge)
 
