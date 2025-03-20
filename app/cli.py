@@ -22,23 +22,23 @@ def start_worker(root_dir: Path) -> subprocess.Popen:
     )
 
 
-def handle_sigterm(api_process: subprocess.Popen, worker_process: subprocess.Popen):
-    """处理终止信号"""
-
-    def handler(signum, frame):
-        print("\nShutting down gracefully...")
-        api_process.terminate()
-        worker_process.terminate()
-        api_process.wait()
-        worker_process.wait()
-        sys.exit(0)
-
-    return handler
+def start_workers(root_dir: Path, num_workers: int = 4) -> list[subprocess.Popen]:
+    """启动多个 worker 进程"""
+    workers = []
+    for _ in range(num_workers):
+        worker = subprocess.Popen(
+            [sys.executable, "-m", "arq", "app.core.arq.WorkerSettings"], cwd=root_dir
+        )
+        workers.append(worker)
+    return workers
 
 
 @cli.command()
-def dev(init: bool = typer.Option(False, "--init", help="初始化数据库")):
-    """启动开发服务器和 worker"""
+def dev(
+    init: bool = typer.Option(False, "--init", help="初始化数据库"),
+    workers: int = typer.Option(4, "--workers", "-w", help="worker 进程数量"),
+):
+    """启动开发服务器和 workers"""
     root_dir = Path(__file__).parent.parent
 
     if init:
@@ -48,19 +48,28 @@ def dev(init: bool = typer.Option(False, "--init", help="初始化数据库")):
         [sys.executable, "-m", "uvicorn", "app.main:app", "--reload"], cwd=root_dir
     )
 
-    worker_process = start_worker(root_dir)
+    worker_processes = start_workers(root_dir, workers)
 
-    # 注册信号处理器
-    signal.signal(signal.SIGINT, handle_sigterm(api_process, worker_process))
+    def handle_sigterm():
+        print("\nShutting down gracefully...")
+        api_process.terminate()
+        for i, worker in enumerate(worker_processes):
+            worker.terminate()
+            print(f"Worker {i} terminated")
+        api_process.wait()
+        for worker in worker_processes:
+            worker.wait()
+        sys.exit(0)
 
-    # 监控进程状态
+    signal.signal(signal.SIGINT, lambda s, f: handle_sigterm())
+
     while True:
         # 检查 worker 进程
-        if worker_process.poll() is not None:
-            print("Worker process terminated, restarting...")
-            worker_process = start_worker(root_dir)
-
-        time.sleep(1)  # 避免过于频繁的检查
+        for i, worker in enumerate(worker_processes):
+            if worker.poll() is not None:
+                print(f"Worker {i} terminated, restarting...")
+                worker_processes[i] = start_worker(root_dir)
+        time.sleep(1)
 
 
 @cli.command()

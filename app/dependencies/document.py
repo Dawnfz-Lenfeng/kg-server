@@ -1,6 +1,5 @@
 import uuid
 from pathlib import Path
-from typing import cast
 
 from fastapi import Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,7 +48,8 @@ async def get_doc(
 
 async def _save_uploaded_file(file: UploadFile):
     """保存上传的文件到指定目录"""
-    file_name = _get_unique_filename(cast(str, file.filename))
+    assert file.filename is not None
+    file_name = _get_unique_filename(file.filename)
     file_path = settings.UPLOAD_DIR / file_name
     file_path.parent.mkdir(parents=True, exist_ok=True)
 

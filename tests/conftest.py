@@ -95,7 +95,7 @@ def pdf_files():
 
 @pytest_asyncio.fixture
 async def uploaded_file_name(pdf_file: UploadFile) -> str:
-    from app.dependencies.documents import _save_uploaded_file
+    from app.dependencies.document import _save_uploaded_file
 
     return await _save_uploaded_file(file=pdf_file)
 

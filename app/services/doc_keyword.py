@@ -26,7 +26,7 @@ class DocKeywordService:
 
         new_keywords = set()
         for name in keyword_names:
-            keyword = await self.kw_svc.read_keyword_by_name(name)
+            keyword = await self.kw_svc.get_keyword_by_name(name)
             if keyword is None:
                 keyword = await self.kw_svc.create_keyword(
                     KeywordCreate(name=name, subject=subject)

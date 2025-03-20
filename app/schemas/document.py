@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import datetime
 from enum import Enum
 
@@ -24,6 +22,7 @@ class DocState(str, Enum):
 
     def __lt__(self, other: str) -> bool:
         """状态比较：用于判断处理进度"""
+        assert isinstance(other, DocState)
         order = [
             self.UPLOADED,
             self.EXTRACTING,
@@ -55,12 +54,6 @@ class DocCreate(DocBase):
     """创建文档请求模型"""
 
     local_file_name: str = Field(..., description="文件名称")
-
-
-class DocUpdate(BaseModel):
-    """更新文档请求模型"""
-
-    title: str | None = Field(None, description="文档标题")
 
 
 class FileUploadResult(BaseModel):

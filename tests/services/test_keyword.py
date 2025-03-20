@@ -42,7 +42,7 @@ async def test_read_keyword(kw_svc: KeywordService):
     created = await kw_svc.create_keyword(
         KeywordCreate(name="测试关键词", subject=Subject.ECONOMICS)
     )
-    keyword = await kw_svc.read_keyword(created.id)
+    keyword = await kw_svc.get_keyword(created.id)
 
     assert keyword is not None
     assert keyword.name == "测试关键词"

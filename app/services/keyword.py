@@ -13,7 +13,7 @@ class KeywordService:
 
     async def create_keyword(self, keyword_create: KeywordCreate):
         """创建关键词"""
-        if await self.read_keyword_by_name(keyword_create.name):
+        if await self.get_keyword_by_name(keyword_create.name):
             raise ValueError(
                 f"Keyword '{keyword_create.name}' has already been created"
             )
@@ -22,15 +22,20 @@ class KeywordService:
             db_keyword = Keyword(**keyword_create.model_dump())
             self.db.add(db_keyword)
 
-    async def read_keyword(self, keyword_id: int):
+    async def get_keyword(self, keyword_id: int):
         """获取单个关键词"""
         result = await self.db.execute(select(Keyword).where(Keyword.id == keyword_id))
         return result.scalar_one_or_none()
 
-    async def read_keyword_by_name(self, name: str):
+    async def get_keyword_by_name(self, name: str):
         """通过名称获取关键词"""
         result = await self.db.execute(select(Keyword).where(Keyword.name == name))
         return result.scalar_one_or_none()
+
+    async def get_keywords(self):
+        """获取所有关键词"""
+        result = await self.db.execute(select(Keyword))
+        return result.scalars().all()
 
     async def get_keyword_list(
         self, skip: int = 0, limit: int = 10, subject: list[Subject] | None = None
@@ -56,7 +61,7 @@ class KeywordService:
 
     async def delete_keyword(self, keyword_id: int) -> bool:
         """删除关键词"""
-        db_keyword = await self.read_keyword(keyword_id)
+        db_keyword = await self.get_keyword(keyword_id)
         if db_keyword is None:
             return False
 
