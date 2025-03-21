@@ -1,4 +1,4 @@
-from sqlalchemy import func, select
+from sqlalchemy import func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import transaction
@@ -21,6 +21,27 @@ class KeywordService:
         async with transaction(self.db):
             db_keyword = Keyword(**keyword_create.model_dump())
             self.db.add(db_keyword)
+
+    async def create_keywords(self, keywords: list[KeywordCreate]):
+        """批量创建关键词"""
+        unique_keywords = {kw.name: kw for kw in keywords}
+        if not unique_keywords:
+            raise ValueError("No keywords provided")
+
+        stmt = select(Keyword.name).where(Keyword.name.in_(unique_keywords))
+        result = await self.db.execute(stmt)
+        existing_names = {row[0] for row in result.fetchall()}
+
+        new_keywords = [
+            kw for kw in unique_keywords.values() if kw.name not in existing_names
+        ]
+
+        if not new_keywords:
+            raise ValueError("All keywords already exist")
+
+        async with transaction(self.db):
+            values = [keyword.model_dump() for keyword in new_keywords]
+            await self.db.execute(insert(Keyword).values(values))
 
     async def get_keyword(self, keyword_id: int):
         """获取单个关键词"""

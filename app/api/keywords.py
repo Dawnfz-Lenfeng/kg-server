@@ -27,11 +27,7 @@ async def create_keywords(
     kw_svc: KeywordService = Depends(get_kw_svc),
 ):
     """批量上传关键词"""
-    for keyword in keywords:
-        try:
-            await kw_svc.create_keyword(keyword)
-        except ValueError:
-            continue
+    await kw_svc.create_keywords(keywords)
 
 
 @router.get("")
